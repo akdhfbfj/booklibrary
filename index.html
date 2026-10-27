@@ -287,9 +287,16 @@ dialog.ai{max-width:min(900px,96vw);max-height:94vh;overflow:auto}
 .airow .lb{font-family:var(--display);font-weight:400;font-size:18px}
 .airow textarea{margin:4px 0}
 .airow .scene{width:100%;font-size:14px;margin:0 0 6px}
-.airow .pastehere{display:none;font-size:13px;color:var(--wood-dark);font-weight:bold;margin-left:6px}
+.pastehere{display:none;font-size:13px;color:var(--wood-dark);font-weight:bold;margin-left:6px}
 .airow.on .pastehere{display:inline}
 @media(max-width:600px){.airow{grid-template-columns:1fr}}
+.aigrp{border:2px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;background:#fff}
+.aigrp.on{border-color:var(--sun);background:#FFFBEA}
+.aigrp.on>.row .pastehere{display:inline}
+.aigrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.airow.mini{grid-template-columns:110px minmax(0,1fr);margin:0;padding:8px}
+.airow.mini textarea{font-size:14px}
+@media(max-width:760px){.aigrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -496,14 +503,16 @@ dialog.ai{max-width:min(900px,96vw);max-height:94vh;overflow:auto}
     <h4>3. 글 확인하고 그림 받기</h4>
     <ol class="aiol">
       <li>글과 그림 장면은 여기서 바로 고칠 수 있어요.</li>
-      <li>칸마다 <b>그림 질문 복사</b> → Gemini에 붙여 넣기 → 나온 그림을 오른쪽 클릭해서 <b>이미지 복사</b> → 여기서 <b>Ctrl+V</b>. (내려받은 파일은 '그림 고르기'로 넣어요)</li>
-      <li><b>그림마다 새 채팅에서</b> 그려요. '복사하고 새 채팅 열기'를 누르면 Gemini 탭이 새 채팅으로 바뀌어요. 같은 대화창에서 이어 그리면 Gemini가 앞 그림을 고쳐서 비슷한 그림이 계속 나와요. 주인공 모습은 질문 속 생김새 설명으로 맞춰져요.</li>
+      <li><b>4쪽씩 한 번에</b>: 묶음마다 <b>복사하고 새 채팅 열기</b> → Gemini에 붙여 넣기 → 나온 4칸 그림을 오른쪽 클릭해서 <b>이미지 복사</b> → 여기서 <b>Ctrl+V</b>. 앱이 4칸을 잘라 쪽마다 넣어요. 마음에 안 드는 쪽은 <b>이 쪽만 다시</b>로 한 장만 다시 받아요.</li>
+      <li>표지는 한 장으로 따로 받아요. 내려받은 파일은 '그림 고르기'로 넣어요.</li>
+      <li><b>질문마다 새 채팅에서</b> 그려요. '복사하고 새 채팅 열기'를 누르면 Gemini 탭이 새 채팅으로 바뀌어요. 같은 대화창에서 이어 그리면 Gemini가 앞 그림을 고쳐서 비슷한 그림이 계속 나와요. 주인공 모습은 질문 속 생김새 설명으로 맞춰져요.</li>
       <li>실제 연예인·유명인을 닮게 해 달라고 하면 거절되거나 초상권 문제가 생길 수 있어요. 머리 모양, 옷 색처럼 생김새로 적어 주세요.</li>
     </ol>
     <div class="two">
       <label class="field"><span>책 제목</span><input type="text" id="aiTitle" maxlength="40" autocomplete="off"></label>
       <label class="field"><span>주인공 <small>(모든 그림 질문에 들어가요)</small></span><input type="text" id="aiChar2" maxlength="120" autocomplete="off"></label>
     </div>
+    <div class="field"><span>그림 받는 방식</span><div class="seg" id="aiMode"><button type="button" data-m="grid">4쪽씩 한 번에 (빠름)</button><button type="button" data-m="one">한 쪽씩 (그림이 더 선명)</button></div></div>
     <div id="aiRows"></div>
     <div class="row"><button type="button" class="btn ghost small" id="aiMulti">그림 여러 장 한꺼번에 넣기</button><span class="aihint" style="margin:0">내려받은 순서대로 빈 칸에 들어가요</span></div>
   </section>
@@ -2654,7 +2663,7 @@ const AI_STYLES = ["따뜻한 수채화 그림책 스타일", "크레파스로 �
 const AI_LAYS = [["side", "그림 왼쪽"], ["top", "그림 위"], ["full", "그림 가득"]];
 let AI = null;
 const aiNew = () => ({ plot:"", grade:3, pages:8, style:AI_STYLES[0], styleTx:"", lay:"side", char:"", th:S.viewTheme || ACTIVE,
-  q1:"", a1:"", title:"", char2:"", items:[], imgs:{}, active:"cover", step:1 });
+  q1:"", a1:"", title:"", char2:"", items:[], imgs:{}, active:"cover", step:1, mode:"grid" });
 function aiSaveDraft(){
   if (!AI) return;
   try { localStorage.setItem(AI_KEY, JSON.stringify(AI)); }
@@ -2743,47 +2752,137 @@ async function aiCopy(text, label){
     ta.remove();
   }
 }
+const isGrp = k => /^g\d+$/.test(String(k));
+const aiGroups = () => { const out = []; for (let i = 0; i < AI.items.length; i += 4) out.push(AI.items.slice(i, i + 4).map((_, j) => String(i + j + 1))); return out; };
+const aiGroupOf = k => aiGroups().findIndex(g => g.includes(String(k)));
+const aiLabelX = k => { if (!isGrp(k)) return aiLabel(k); const g = aiGroups()[+k.slice(1)] || []; return `${g[0]}~${g[g.length - 1]}쪽`; };
+const AI_POS = ["왼쪽 위", "오른쪽 위", "왼쪽 아래", "오른쪽 아래"];
+function aiGridPrompt(gi){
+  const g = aiGroups()[gi] || [], chx = (AI.char2 || AI.char || "").trim() || "줄거리에 어울리는 귀여운 주인공";
+  const lines = AI_POS.map((p, j) => {
+    const k = g[j]; if (!k) return `${p} 칸 (예비 그림): 앞 칸들과 다른 곳에서 주인공이 웃고 있는 장면`;
+    const it = AI.items[+k - 1] || {}, sc = (it.scene || "").trim() || (it.text || "").trim();
+    return `${p} 칸 (${k}쪽): ${sc} / 구도: ${AI_SHOTS[(+k - 1) % AI_SHOTS.length]}`;
+  });
+  return `그림책 삽화 4장면을 한 장의 그림 안에 2×2 칸(가로 2칸, 세로 2칸)으로 나눠 그려 줘. 이전 그림이 있어도 고치지 말고 처음부터 새로 그려 줘.
+- 칸 사이에는 같은 굵기의 흰색 띠를 넣고, 바깥 테두리는 넣지 마.
+- 칸 순서: 왼쪽 위 → 오른쪽 위 → 왼쪽 아래 → 오른쪽 아래
+- 주인공 생김새 (네 칸 모두 똑같이): ${chx}
+- 그림체: ${aiStyle()}, 밝고 따뜻한 색감, 초등학생용 그림책
+- 전체 그림과 각 칸 모두 가로로 긴 4:3 비율
+- 그림 안에 글자, 말풍선, 칸 번호, 제목, 서명은 넣지 마.
+- 네 칸의 장소, 자세, 구도가 서로 겹치지 않게 해 줘.
+
+${lines.join("\n")}`;
+}
+const aiPromptFor = k => isGrp(k) ? aiGridPrompt(+k.slice(1)) : aiImgPrompt(k);
+// 2×2 그림을 흰 띠를 찾아 4칸으로 잘라요 (흰 띠가 없으면 정가운데에서 잘라요)
+async function aiSplit4(src){
+  const img = await loadImage(src), W = img.naturalWidth, H = img.naturalHeight;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const x = c.getContext("2d"); x.drawImage(img, 0, 0);
+  const d = x.getImageData(0, 0, W, H).data;
+  const lum = (px, py) => { const i = (py * W + px) * 4; return (d[i] + d[i + 1] + d[i + 2]) / 3; };
+  const colS = (px, y0 = 0, y1 = H) => { let s = 0, s2 = 0, n = 0; for (let y = y0; y < y1; y += 2){ const v = lum(px, y); s += v; s2 += v * v; n++; } const m = s / n; return m - Math.sqrt(Math.max(0, s2 / n - m * m)); };
+  const rowS = (py, x0 = 0, x1 = W) => { let s = 0, s2 = 0, n = 0; for (let xx = x0; xx < x1; xx += 2){ const v = lum(xx, py); s += v; s2 += v * v; n++; } const m = s / n; return m - Math.sqrt(Math.max(0, s2 / n - m * m)); };
+  const band = (len, score) => {
+    let best = -1, bi = Math.round(len / 2);
+    for (let p = Math.round(len * .35); p <= Math.round(len * .65); p++){ const s = score(p); if (s > best){ best = s; bi = p; } }
+    if (best < 200) return [bi, bi];
+    let a = bi, b = bi;
+    while (a > 0 && score(a - 1) > best - 30) a--;
+    while (b < len - 1 && score(b + 1) > best - 30) b++;
+    return [a, b + 1];
+  };
+  const [xa, xb] = band(W, p => colS(p)), [ya, yb] = band(H, p => rowS(p));
+  const out = [];
+  for (let [x0, y0, x1, y1] of [[0, 0, xa, ya], [xb, 0, W, ya], [0, yb, xa, H], [xb, yb, W, H]]){
+    const lim = Math.round(Math.min(x1 - x0, y1 - y0) * .1);
+    for (let t = 0; t < lim && colS(x0, y0, y1) > 225; t++) x0++;
+    for (let t = 0; t < lim && colS(x1 - 1, y0, y1) > 225; t++) x1--;
+    for (let t = 0; t < lim && rowS(y0, x0, x1) > 225; t++) y0++;
+    for (let t = 0; t < lim && rowS(y1 - 1, x0, x1) > 225; t++) y1--;
+    const ins = Math.round(Math.min(x1 - x0, y1 - y0) * .012) + 1;   // 칸 테두리선을 살짝 잘라 내요
+    x0 += ins; y0 += ins; x1 -= ins; y1 -= ins;
+    const pc = document.createElement("canvas"); pc.width = Math.max(1, x1 - x0); pc.height = Math.max(1, y1 - y0);
+    pc.getContext("2d").drawImage(c, x0, y0, pc.width, pc.height, 0, 0, pc.width, pc.height);
+    out.push(pc.toDataURL("image/jpeg", 0.9));
+  }
+  return out;
+}
 function aiSetActive(k){
   if (!AI) return; AI.active = k;
-  document.querySelectorAll("#aiRows .airow").forEach(r => r.classList.toggle("on", r.dataset.k === k));
+  document.querySelectorAll("#aiRows [data-k]").forEach(r => r.classList.toggle("on", r.dataset.k === k));
   aiSave();
 }
+const aiTargets = () => AI.mode === "one" ? aiKeys() : ["cover", ...aiGroups().map((_, i) => "g" + i)];
+const aiTargetEmpty = k => isGrp(k) ? (aiGroups()[+k.slice(1)] || []).some(p => !AI.imgs[p]) : !AI.imgs[k];
 function aiNextEmpty(after){
-  const ks = aiKeys(), i = ks.indexOf(after);
-  const nx = ks.slice(i + 1).concat(ks.slice(0, i + 1)).find(k => !AI.imgs[k]);
+  const ts = aiTargets(); let i = ts.indexOf(after);
+  if (i < 0 && AI.mode !== "one"){ const gi = aiGroupOf(after); i = ts.indexOf(gi >= 0 ? "g" + gi : "cover"); }
+  const nx = ts.slice(i + 1).concat(ts.slice(0, Math.max(0, i + 1))).find(aiTargetEmpty);
   aiSetActive(nx || after);
+}
+// 그림 한 장을 넣어요. 묶음(g0, g1 …)이면 4칸으로 잘라 쪽마다 넣어요. 넣은 장 수를 돌려줘요
+async function aiPut(k, file){
+  const src = URL.createObjectURL(file);
+  if (isGrp(k)){
+    const g = aiGroups()[+k.slice(1)] || [], parts = await aiSplit4(src);
+    for (let j = 0; j < g.length; j++) AI.imgs[g[j]] = await shrink(parts[j], 1000, 0.85);
+    return g.length;
+  }
+  AI.imgs[k] = await shrink(src, 1000, 0.82); return 1;
 }
 async function aiSetImg(k, file){
   if (!file || !AI) return;
   try {
-    const data = await shrink(URL.createObjectURL(file), 1000, 0.82);
-    AI.imgs[k] = data; aiSaveDraft(); aiRenderRows(); aiNextEmpty(k); toast(`${aiLabel(k)} 그림을 넣었어요`);
-  } catch(e){ toast("그림을 읽지 못했어요. 다른 방법으로 넣어 주세요"); }
+    if (isGrp(k)) toast("4칸 그림을 자르고 있어요…");
+    const n = await aiPut(k, file);
+    aiSaveDraft(); aiRenderRows(); aiNextEmpty(k);
+    toast(isGrp(k) ? `${aiLabelX(k)} 그림 ${n}장을 잘라 넣었어요` : `${aiLabel(k)} 그림을 넣었어요`);
+  } catch(e){ console.error(e); toast("그림을 읽지 못했어요. 다른 방법으로 넣어 주세요"); }
+}
+function aiRowHTML(k, mini){
+  const it = k === "cover" ? null : AI.items[+k - 1], img = AI.imgs[k];
+  return `<div class="airow${mini ? " mini" : ""}${AI.active === k ? " on" : ""}" data-k="${k}">
+    <div class="aithumb">${img ? `<img src="${img}" alt="${aiLabel(k)} 그림">` : mini ? "그림 없음" : "그림을 복사한 뒤<br>이 칸을 누르고<br>Ctrl+V"}</div>
+    <div style="min-width:0">
+      <span class="lb">${aiLabel(k)}</span><span class="pastehere">← 여기에 붙여 넣어요 (Ctrl+V)</span>
+      ${it ? `<textarea rows="2" data-t="${k}" aria-label="${k}쪽 글">${esc(it.text)}</textarea>
+        <input type="text" class="scene" data-s="${k}" value="${esc(it.scene)}" placeholder="그림 장면 설명" aria-label="${k}쪽 그림 장면">`
+        : `<p class="aihint" style="margin:4px 0 8px">책 제목과 주인공으로 표지 그림 질문을 만들어요. (제목 글자는 앱이 따로 넣어요)</p>`}
+      <div class="row">
+        ${mini ? `<button type="button" class="btn ghost small" data-cp="${k}">이 쪽만 다시</button>`
+          : `<button type="button" class="btn sun small" data-cp="${k}">복사하고 새 채팅 열기</button><button type="button" class="btn ghost small" data-cp1="${k}">질문만 복사</button>`}
+        <button type="button" class="btn ghost small" data-pick="${k}">그림 고르기</button>
+        ${img ? `<button type="button" class="btn ghost small" data-rm="${k}">빼기</button>` : ""}
+      </div>
+    </div></div>`;
 }
 function aiRenderRows(){
   const el = $("#aiRows"); if (!el || !AI) return;
-  el.innerHTML = aiKeys().map(k => {
-    const it = k === "cover" ? null : AI.items[+k - 1], img = AI.imgs[k];
-    return `<div class="airow${AI.active === k ? " on" : ""}" data-k="${k}">
-      <div class="aithumb">${img ? `<img src="${img}" alt="${aiLabel(k)} 그림">` : "그림을 복사한 뒤<br>이 칸을 누르고<br>Ctrl+V"}</div>
-      <div style="min-width:0">
-        <span class="lb">${aiLabel(k)}</span><span class="pastehere">← 여기에 붙여 넣어요 (Ctrl+V)</span>
-        ${it ? `<textarea rows="2" data-t="${k}" aria-label="${k}쪽 글">${esc(it.text)}</textarea>
-          <input type="text" class="scene" data-s="${k}" value="${esc(it.scene)}" placeholder="그림 장면 설명" aria-label="${k}쪽 그림 장면">`
-          : `<p class="aihint" style="margin:4px 0 8px">책 제목과 주인공으로 표지 그림 질문을 만들어요. (제목 글자는 앱이 따로 넣어요)</p>`}
+  const mode = AI.mode === "one" ? "one" : "grid";
+  document.querySelectorAll("#aiMode [data-m]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.m === mode)));
+  if (mode === "one") el.innerHTML = aiKeys().map(k => aiRowHTML(k, false)).join("");
+  else el.innerHTML = aiRowHTML("cover", false) + aiGroups().map((g, gi) => {
+    const k = "g" + gi, done = g.filter(p => AI.imgs[p]).length;
+    return `<div class="aigrp${AI.active === k ? " on" : ""}" data-k="${k}">
+      <div class="row" style="justify-content:space-between">
+        <div><span class="lb">${g[0]}~${g[g.length - 1]}쪽 한 번에</span>&nbsp; <small style="color:var(--ink-soft)">그림 ${done}/${g.length}</small><span class="pastehere">← 4칸 그림을 여기에 붙여 넣어요 (Ctrl+V)</span></div>
         <div class="row">
           <button type="button" class="btn sun small" data-cp="${k}">복사하고 새 채팅 열기</button>
           <button type="button" class="btn ghost small" data-cp1="${k}">질문만 복사</button>
-          <button type="button" class="btn ghost small" data-pick="${k}">그림 고르기</button>
-          ${img ? `<button type="button" class="btn ghost small" data-rm="${k}">그림 빼기</button>` : ""}
+          <button type="button" class="btn ghost small" data-pick="${k}">4칸 그림 고르기</button>
         </div>
-      </div></div>`;
+      </div>
+      <div class="aigrid">${g.map(p => aiRowHTML(p, true)).join("")}</div>
+    </div>`;
   }).join("");
-  el.querySelectorAll(".airow").forEach(r => r.addEventListener("click", () => aiSetActive(r.dataset.k)));
+  el.querySelectorAll("[data-k]").forEach(r => r.addEventListener("click", e => { e.stopPropagation(); aiSetActive(r.dataset.k); }));
   el.querySelectorAll("[data-t]").forEach(x => x.oninput = () => { AI.items[+x.dataset.t - 1].text = x.value; aiSave(); });
   el.querySelectorAll("[data-s]").forEach(x => x.oninput = () => { AI.items[+x.dataset.s - 1].scene = x.value; aiSave(); });
-  el.querySelectorAll("[data-cp]").forEach(x => x.onclick = async e => { e.stopPropagation(); aiSetActive(x.dataset.cp); await aiCopy(aiImgPrompt(x.dataset.cp), `${aiLabel(x.dataset.cp)} 그림 질문`); aiOpenGemini(); });
-  el.querySelectorAll("[data-cp1]").forEach(x => x.onclick = e => { e.stopPropagation(); aiSetActive(x.dataset.cp1); aiCopy(aiImgPrompt(x.dataset.cp1), `${aiLabel(x.dataset.cp1)} 그림 질문`); });
+  el.querySelectorAll("[data-cp]").forEach(x => x.onclick = async e => { e.stopPropagation(); const k = x.dataset.cp; aiSetActive(k); await aiCopy(aiPromptFor(k), `${aiLabelX(k)} 그림 질문`); aiOpenGemini(); });
+  el.querySelectorAll("[data-cp1]").forEach(x => x.onclick = e => { e.stopPropagation(); const k = x.dataset.cp1; aiSetActive(k); aiCopy(aiPromptFor(k), `${aiLabelX(k)} 그림 질문`); });
   el.querySelectorAll("[data-pick]").forEach(x => x.onclick = async e => { e.stopPropagation(); const k = x.dataset.pick; aiSetActive(k); const f = await pickFile("image/*"); if (f) aiSetImg(k, f); });
   el.querySelectorAll("[data-rm]").forEach(x => x.onclick = e => { e.stopPropagation(); delete AI.imgs[x.dataset.rm]; aiSaveDraft(); aiRenderRows(); aiSetActive(x.dataset.rm); });
 }
@@ -2814,7 +2913,7 @@ async function openAi(){
   await loadRoster();
   let saved = null; try { saved = JSON.parse(localStorage.getItem(AI_KEY) || "null"); } catch(e){}
   AI = saved && saved.step ? { ...aiNew(), ...saved } : aiNew();
-  if (saved && saved.step) toast("저번에 만들던 책을 불러왔어요");
+  if (saved && saved.step > 1) toast("저번에 만들던 책을 불러왔어요");
   const d = $("#aiDlg");
   aiFill();
   ["#aiPlot", "#aiChar", "#aiStyleTx", "#aiA1"].forEach(s => $(s).oninput = () => { aiReadInputs(); AI.a1 = $("#aiA1").value; aiSave(); });
@@ -2828,6 +2927,7 @@ async function openAi(){
     AI.q1 = aiTextPrompt(); AI.step = Math.max(AI.step, 2); aiSaveDraft(); aiFill();
     $("#aiS2").scrollIntoView({ behavior:"smooth", block:"start" });
   };
+  document.querySelectorAll("#aiMode [data-m]").forEach(b => b.onclick = () => { AI.mode = b.dataset.m; aiSaveDraft(); aiRenderRows(); aiNextEmpty("cover"); if (!AI.imgs.cover) aiSetActive("cover"); });
   $("#aiCopy1").onclick = () => aiCopy($("#aiQ1").value, "글 질문");
   $("#aiRead").onclick = async () => {
     AI.a1 = $("#aiA1").value;
@@ -2847,14 +2947,13 @@ async function openAi(){
     i.onchange = async () => {
       const files = [...i.files].sort((a, b) => (a.lastModified - b.lastModified) || a.name.localeCompare(b.name, "ko", { numeric:true }));
       i.remove(); if (!files.length) return;
-      const empty = aiKeys().filter(k => !AI.imgs[k]);
+      const empty = aiTargets().filter(aiTargetEmpty);
       if (!empty.length){ toast("빈 칸이 없어요. 바꿀 그림은 칸마다 '그림 고르기'로 넣어 주세요"); return; }
       toast("그림을 넣고 있어요…");
-      for (let n = 0; n < files.length && n < empty.length; n++){
-        try { AI.imgs[empty[n]] = await shrink(URL.createObjectURL(files[n]), 1000, 0.82); } catch(e){}
-      }
-      aiSaveDraft(); aiRenderRows(); aiNextEmpty(empty[Math.min(files.length, empty.length) - 1]);
-      toast(`그림 ${Math.min(files.length, empty.length)}장을 넣었어요${files.length > empty.length ? ` (남는 ${files.length - empty.length}장은 빈 칸이 없어서 뺏어요)` : ""}`);
+      let used = 0;
+      for (let n = 0; n < files.length && n < empty.length; n++){ try { await aiPut(empty[n], files[n]); used++; } catch(e){} }
+      aiSaveDraft(); aiRenderRows(); if (used) aiNextEmpty(empty[used - 1]);
+      toast(`그림 ${used}장을 넣었어요${files.length > empty.length ? ` (남는 ${files.length - empty.length}장은 빈 칸이 없어서 뺐어요)` : ""}`);
     };
     document.body.appendChild(i); i.click();
   };
@@ -2862,7 +2961,7 @@ async function openAi(){
     if (!await ask({ title:"처음부터 다시", text:"지금까지 만든 글과 그림을 모두 지우고 새로 시작할까요?", ok:"새로 시작", danger:true })) return;
     localStorage.removeItem(AI_KEY); AI = aiNew(); aiFill();
   };
-  $("#aiNo").onclick = () => { if (AI){ aiReadInputs(); aiSaveDraft(); } closeDlg(d); if (AI && AI.step > 1) toast("만들던 내용을 저장해 됐어요. 다시 열면 이어서 할 수 있어요"); };
+  $("#aiNo").onclick = () => { if (AI){ aiReadInputs(); aiSaveDraft(); } closeDlg(d); if (AI && AI.step > 1) toast("만들던 내용을 저장해 뒀어요. 다시 열면 이어서 할 수 있어요"); };
   d.oncancel = e => { e.preventDefault(); $("#aiNo").click(); };
   $("#aiSave").onclick = aiSaveBook;
   openDlg(d);
