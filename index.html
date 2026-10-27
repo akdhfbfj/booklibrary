@@ -180,6 +180,16 @@ textarea:focus,input:focus{border-color:var(--ink);outline:none}
 .pg.full .im{position:absolute;inset:0}
 .pg.full .im img{width:100%;height:100%;max-width:none;object-fit:cover;border-radius:0}
 .pg.full .t{position:absolute;left:4cqw;right:4cqw;bottom:4cqw;max-height:40%;background:rgba(255,255,255,.9);border-radius:1.6cqw;padding:2.4cqw 3cqw}
+.pg.right{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);align-items:center}
+.pg.right .im{order:2}
+.pg.bottom{grid-template-rows:minmax(0,1fr) minmax(0,1.5fr)}
+.pg.bottom .im{order:2}
+.pg.bottom .t{text-align:center}
+.pg.fulltop,.pg.only{padding:0;display:block}
+.pg.fulltop .im,.pg.only .im{position:absolute;inset:0}
+.pg.fulltop .im img,.pg.only .im img{width:100%;height:100%;max-width:none;object-fit:cover;border-radius:0}
+.pg.fulltop .t{position:absolute;left:4cqw;right:4cqw;top:4cqw;max-height:40%;background:rgba(255,255,255,.9);border-radius:1.6cqw;padding:2.4cqw 3cqw}
+.pg.only .ph{border:0;border-radius:0}
 .pg.text{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);align-items:center;padding:7cqw 9cqw}
 .pg.text .t{max-height:100%;width:100%}
 .pg.text .t{font-size:3.8cqw;text-align:center}
@@ -290,6 +300,15 @@ dialog.ai{max-width:min(900px,96vw);max-height:94vh;overflow:auto}
 .pastehere{display:none;font-size:13px;color:var(--wood-dark);font-weight:bold;margin-left:6px}
 .airow.on .pastehere{display:inline}
 @media(max-width:600px){.airow{grid-template-columns:1fr}}
+.aipages{display:grid;gap:8px}
+.aipg{display:grid;grid-template-columns:48px 190px minmax(0,1fr);gap:8px;align-items:start;padding:8px 10px;border:2px solid var(--line);border-radius:12px;background:#fff}
+.aipg>b{font-family:var(--display);font-weight:400;font-size:18px;padding-top:8px}
+.aipg select{padding:8px 10px}
+.aipg textarea{margin:0 0 6px;font-size:15px;line-height:1.5}
+.aipg .cnt{font-size:12px;color:var(--ink-soft)}
+.aipg .cnt.warn{color:var(--coral);font-weight:bold}
+@media(max-width:700px){.aipg{grid-template-columns:48px minmax(0,1fr)}.aipg>div{grid-column:1/-1}}
+.airow .scn{font-size:13px;color:var(--ink-soft);margin:2px 0 6px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .aigrp{border:2px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;background:#fff}
 .aigrp.on{border-color:var(--sun);background:#FFFBEA}
 .aigrp.on>.row .pastehere{display:inline}
@@ -502,7 +521,7 @@ dialog.ai{max-width:min(900px,96vw);max-height:94vh;overflow:auto}
   <section class="aistep" id="aiS3" hidden>
     <h4>3. 글 확인하고 그림 받기</h4>
     <ol class="aiol">
-      <li>글과 그림 장면은 여기서 바로 고칠 수 있어요.</li>
+      <li><b>쪽 구성</b>에서 쪽마다 모양, 글, 그림 장면을 고칠 수 있어요. '글만' 쪽은 그림을 받지 않아요.</li>
       <li><b>4쪽씩 한 번에</b>: 묶음마다 <b>복사하고 새 채팅 열기</b> → Gemini에 붙여 넣기 → 나온 4칸 그림을 오른쪽 클릭해서 <b>이미지 복사</b> → 여기서 <b>Ctrl+V</b>. 앱이 4칸을 잘라 쪽마다 넣어요. 마음에 안 드는 쪽은 <b>이 쪽만 다시</b>로 한 장만 다시 받아요.</li>
       <li>표지는 한 장으로 따로 받아요. 내려받은 파일은 '그림 고르기'로 넣어요.</li>
       <li><b>질문마다 새 채팅에서</b> 그려요. '복사하고 새 채팅 열기'를 누르면 Gemini 탭이 새 채팅으로 바뀌어요. 같은 대화창에서 이어 그리면 Gemini가 앞 그림을 고쳐서 비슷한 그림이 계속 나와요. 주인공 모습은 질문 속 생김새 설명으로 맞춰져요.</li>
@@ -512,6 +531,7 @@ dialog.ai{max-width:min(900px,96vw);max-height:94vh;overflow:auto}
       <label class="field"><span>책 제목</span><input type="text" id="aiTitle" maxlength="40" autocomplete="off"></label>
       <label class="field"><span>주인공 <small>(모든 그림 질문에 들어가요)</small></span><input type="text" id="aiChar2" maxlength="120" autocomplete="off"></label>
     </div>
+    <div class="field"><span>쪽 구성 <small>(쪽마다 모양과 글을 고칠 수 있어요)</small></span><div id="aiPagesBox" class="aipages"></div></div>
     <div class="field"><span>그림 받는 방식</span><div class="seg" id="aiMode"><button type="button" data-m="grid">4쪽씩 한 번에 (빠름)</button><button type="button" data-m="one">한 쪽씩 (그림이 더 선명)</button></div></div>
     <div id="aiRows"></div>
     <div class="row"><button type="button" class="btn ghost small" id="aiMulti">그림 여러 장 한꺼번에 넣기</button><span class="aihint" style="margin:0">내려받은 순서대로 빈 칸에 들어가요</span></div>
@@ -556,8 +576,8 @@ const CONFIG = {
 /*@@END@@*/
 /* ============================================================ */
 
-const LIMITS = { side:[100,5], top:[80,4], full:[80,4], text:[150,7] };  // [권장 글자 수, 약 몇 문장]
-const LAYOUTS = [["side","그림 왼쪽"],["top","그림 위"],["full","그림 가득"],["text","글만"]];
+const LIMITS = { side:[100,5], right:[100,5], top:[80,4], bottom:[80,4], full:[80,4], fulltop:[80,4], only:[0,0], text:[150,7] };  // [권장 글자 수, 약 몇 문장]
+const LAYOUTS = [["side","그림 왼쪽"],["right","그림 오른쪽"],["top","그림 위"],["bottom","그림 아래"],["full","그림 가득·글 아래"],["fulltop","그림 가득·글 위"],["only","그림만"],["text","글만"]];
 const COLORS = ["#3E6FB0","#2F9E77","#E1573F","#7A5BC7","#D98A1E","#1F8A9E","#C24C7A"];
 
 let DB = null;
@@ -880,6 +900,7 @@ function fitText(root){
   });
 }
 function guideHTML(p){
+  if (p.layout === "only") return `<p class="guide${p.text.trim() ? " warn" : ""}" id="guide">'그림만' 쪽은 글이 보이지 않아요.${p.text.trim() ? " 이 글은 다른 쪽으로 옮겨 주세요." : " 그림으로만 장면을 보여 줘요."}</p>`;
   const [max, sent] = LIMITS[p.layout] || LIMITS.side;
   const n = p.text.replace(/\n/g, "").length;
   return n > max
@@ -895,7 +916,7 @@ function pageHTML(p, img, num, preview){
   if (!img && lay !== "text" && !preview) lay = "text";
   const im = lay === "text" ? "" :
     `<div class="im">${img ? `<img src="${img}" alt="">` : `<div class="ph">그림을 넣어 주세요</div>`}</div>`;
-  const tx = `<div class="t">${esc(p.text) || (preview ? '<span style="color:var(--ink-soft)">여기에 글이 들어가요</span>' : "")}</div>`;
+  const tx = lay === "only" ? "" : `<div class="t">${esc(p.text) || (preview ? '<span style="color:var(--ink-soft)">여기에 글이 들어가요</span>' : "")}</div>`;
   return `<div class="pg ${lay}">${im}${tx}${num ? `<span class="no">${num}</span>` : ""}</div>`;
 }
 function coverHTML(b, id, img){
@@ -1817,11 +1838,23 @@ async function drawSlide(book, id, imgs, i){
       drawImg(x, im, pad, pad, w, ih, false, 1.2*U);
       const f = fitLines(x, p.text, w, th, 3.4*U, lh, F_BODY);
       x.fillStyle = ink; drawLines(x, f, pad, pad+ih+gap, w, lh, "center");
-    } else if (lay === "full"){
+    } else if (lay === "right"){
+      const cw = PW - 2*pad - gap, iw = cw*1.15/2.15, tw = cw - iw, h = PH - 2*pad;
+      drawImg(x, im, pad + tw + gap, pad, iw, h, false, 1.2*U);
+      const f = fitLines(x, p.text, tw, h, 3.4*U, lh, F_BODY);
+      x.fillStyle = ink; drawLines(x, f, pad, pad + Math.max(0,(h - f.h)/2), tw, lh, "left");
+    } else if (lay === "bottom"){
+      const ch = PH - 2*pad - gap, ih = ch*1.5/2.5, th = ch - ih, w = PW - 2*pad;
+      drawImg(x, im, pad, pad + th + gap, w, ih, false, 1.2*U);
+      const f = fitLines(x, p.text, w, th, 3.4*U, lh, F_BODY);
+      x.fillStyle = ink; drawLines(x, f, pad, pad + Math.max(0, th - f.h), w, lh, "center");
+    } else if (lay === "only"){
+      drawImg(x, im, 0, 0, PW, PH, true);
+    } else if (lay === "full" || lay === "fulltop"){
       drawImg(x, im, 0, 0, PW, PH, true);
       if (p.text.trim()){
         const bw = PW - 8*U, f = fitLines(x, p.text, bw - 6*U, PH*0.4 - 4.8*U, 3.4*U, lh, F_BODY);
-        const bh = f.h + 4.8*U, by = PH - 4*U - bh;
+        const bh = f.h + 4.8*U, by = lay === "fulltop" ? 4*U : PH - 4*U - bh;
         x.fillStyle = "rgba(255,255,255,.9)"; rr(x, 4*U, by, bw, bh, 1.6*U); x.fill();
         x.fillStyle = ink; drawLines(x, f, 7*U, by + 2.4*U, bw - 6*U, lh, "left");
       }
@@ -2332,7 +2365,8 @@ function slideText(i){
   const b = S.book, n = b.pages.length;
   if (i === 0) return `${b.title || "제목 없는 책"}. 지은이 ${b.author}.`;
   if (i === n + 1) return "끝.";
-  return (b.pages[i - 1] || {}).text || "";
+  const pg = b.pages[i - 1] || {};
+  return pg.layout === "only" ? "" : pg.text || "";
 }
 function speakNow(){
   if (!canSpeak) return;
@@ -2660,9 +2694,22 @@ function wireTools(){
 /* ---------- AI 예시 책 도우미 (Gemini 무료 앱에 복사·붙여넣기) ---------- */
 const AI_KEY = "csb-ai-draft";
 const AI_STYLES = ["따뜻한 수채화 그림책 스타일", "크레파스로 그린 손그림 스타일", "부드러운 색연필 스타일", "귀여운 만화 스타일", "종이를 오려 붙인 콜라주 스타일", "직접 쓰기"];
-const AI_LAYS = [["side", "그림 왼쪽"], ["top", "그림 위"], ["full", "그림 가득"]];
+const AI_LAYS = [["mix", "섞어서 (AI가 쪽마다 골라요, 추천)"], ...LAYOUTS.filter(([k]) => k !== "only" && k !== "text")];
+const LAY_KEY = { "그림왼쪽":"side", "왼쪽":"side", "그림오른쪽":"right", "오른쪽":"right", "그림위":"top", "그림아래":"bottom", "그림가득":"full", "그림가득글아래":"full", "그림가득글위":"fulltop", "그림만":"only", "글만":"text" };
+const layName = k => (LAYOUTS.find(([v]) => v === k) || [k, k])[1];
+// 쪽 모양 정하기: AI가 고른 모양 > 1단계에서 고른 모양 > 자동으로 섞기
+function aiLayOf(k){
+  const i = +k - 1, it = AI.items[i] || {};
+  if (it.lay && LIMITS[it.lay]) return it.lay;
+  if (AI.lay && AI.lay !== "mix") return AI.lay;
+  const n = AI.items.length, len = (it.text || "").replace(/\s/g, "").length;
+  if (i === 0 || i === n - 1) return len <= 80 ? "full" : "top";
+  const cyc = ["side", "top", "right", "bottom", "fulltop", "side", "right", "top"];
+  const l = cyc[(i - 1) % cyc.length];
+  return (LIMITS[l][0] < len) ? (i % 2 ? "side" : "right") : l;
+}
 let AI = null;
-const aiNew = () => ({ plot:"", grade:3, pages:8, style:AI_STYLES[0], styleTx:"", lay:"side", char:"", th:S.viewTheme || ACTIVE,
+const aiNew = () => ({ plot:"", grade:3, pages:8, style:AI_STYLES[0], styleTx:"", lay:"mix", char:"", th:S.viewTheme || ACTIVE,
   q1:"", a1:"", title:"", char2:"", items:[], imgs:{}, active:"cover", step:1, mode:"grid" });
 function aiSaveDraft(){
   if (!AI) return;
@@ -2671,34 +2718,50 @@ function aiSaveDraft(){
 }
 const aiSave = (() => { let t; return () => { clearTimeout(t); t = setTimeout(aiSaveDraft, 500); }; })();
 const aiStyle = () => AI.style === "직접 쓰기" ? (AI.styleTx.trim() || "따뜻한 수채화 그림책 스타일") : AI.style;
-const aiKeys = () => ["cover", ...AI.items.map((_, i) => String(i + 1))];
+const aiKeys = () => ["cover", ...AI.items.map((_, i) => String(i + 1)).filter(k => aiLayOf(k) !== "text")];
 const aiLabel = k => k === "cover" ? "표지" : `${k}쪽`;
 function aiTextPrompt(){
-  const [max, sent] = LIMITS[AI.lay] || LIMITS.side, n = AI.pages;
+  const n = AI.pages, mix = !AI.lay || AI.lay === "mix";
   return `너는 초등학교 ${AI.grade}학년 학생들을 위한 그림책 작가야. 아래 줄거리로 ${n}쪽짜리 그림책을 써 줘.
 이 책은 학생들이 자기 그림책을 만들 때 보는 예시 책이야.
 
 [줄거리]
 ${AI.plot.trim()}
 
-[조건]
-- 모두 ${n}쪽. 처음-가운데-끝이 분명하고, 마지막 쪽에서 이야기가 따뜻하게 마무리돼야 해.
-- 한 쪽의 글은 ${max}자 이내, ${sent}문장 이하로 짧게. 초등 ${AI.grade}학년이 혼자 읽을 수 있는 쉬운 말로 써.
-- 무섭거나 폭력적인 내용, 실제 사람·상표·유명 만화 캐릭터 이름은 넣지 마.
-${AI.char.trim() ? `- 주인공 모습은 꼭 이렇게 해 줘: ${AI.char.trim()}
-` : ""}- 쪽마다 그 장면을 그림으로 그릴 수 있게, 눈에 보이는 장면 설명도 한 줄씩 써 줘.
-- 그림 장면은 쪽마다 장소, 시간, 행동, 등장인물이 눈에 띄게 달라져야 해. 같은 장소에서 같은 자세가 두 번 나오지 않게 해 줘.
-- 주인공 설명은 머리 모양, 얼굴 특징, 옷 색깔, 신발까지 자세히 써 줘. 실제 연예인이나 유명인을 닮았다는 표현은 쓰지 마.
+[글 쓰는 법: 줄글이 아니라 그림책 글로]
+- 한 줄은 한 호흡(10~18자 정도)으로 짧게 끊고 줄을 바꿔서 써.
+- 대사는 큰따옴표로 따로 한 줄에 쓰고, 장면이나 말하는 사람이 바뀌면 빈 줄을 하나 넣어.
+- 흉내 내는 말(예: 톡톡, 쿵, 살금살금)과 반복되는 말을 넣어서 소리 내어 읽기 좋게 해.
+- 쪽마다 글 양을 다르게 해 줘. 긴 쪽, 짧은 쪽, 한두 줄짜리 쪽이 섞이게.
+- 처음-가운데-끝이 분명하고, 마지막 쪽은 따뜻하게 마무리해.
+- 초등 ${AI.grade}학년이 혼자 읽을 수 있는 쉬운 말로 써. 무섭거나 폭력적인 내용, 실제 사람·상표·유명 캐릭터 이름, 실제 연예인을 닮았다는 표현은 쓰지 마.
+${AI.char.trim() ? `- 주인공 모습은 꼭 이렇게 해 줘: ${AI.char.trim()}\n` : ""}
+[쪽 모양]
+${mix ? `- 쪽마다 장면에 어울리는 모양을 아래 8가지 중에서 하나씩 골라 줘. 같은 모양이 3쪽 넘게 이어지지 않게 섞어 줘.
+- 큰 장면은 '그림 가득', 대화가 많은 쪽은 '그림 왼쪽'이나 '그림 오른쪽', 가장 극적인 장면 한 쪽은 '그림만'(이 쪽 글은 '없음'), 생각이나 마음을 길게 말하는 쪽 하나 정도는 '글만'으로.` : `- 모든 쪽은 '${layName(AI.lay)}' 모양이야.`}
+- 모양별 글 양(공백 빼고): 그림 왼쪽·그림 오른쪽 100자, 그림 위·그림 아래·그림 가득·그림 가득 글 위 80자, 글만 150자 이내.
+- 그림 위·그림 아래·그림 가득·그림 가득 글 위 쪽은 빈 줄 포함 4줄 이내로 짧게 써 줘. 줄이 많으면 글씨가 작아져.
+
+[그림 장면]
+- 쪽마다 장소, 시간, 행동, 등장인물이 눈에 띄게 달라지게 해 줘. 같은 장소에서 같은 자세가 두 번 나오지 않게.
+- 주인공 설명은 머리 모양, 얼굴 특징, 옷 색깔, 신발까지 자세히 써 줘.
 
 [출력 형식]
-아래 형식만 정확히 지켜서 써 줘. 인사말이나 설명, 표, 굵은 글씨는 쓰지 마.
+아래 형식만 지켜서 써 줘. 인사말, 설명, 표, 굵은 글씨는 쓰지 마.
 제목: (책 제목)
-주인공: (주인공의 생김새를 그림 그리기 좋게 한 줄로. 색깔, 옷, 크기, 특징까지)
-1쪽: (글)
-그림1: (1쪽 장면 설명 한 줄)
-2쪽: (글)
-그림2: (2쪽 장면 설명 한 줄)
-... ${n}쪽, 그림${n}까지`;
+주인공: (주인공 생김새 한 줄)
+
+1쪽:
+(이 쪽 글. 여러 줄로)
+모양1: (그림 왼쪽 / 그림 오른쪽 / 그림 위 / 그림 아래 / 그림 가득 / 그림 가득 글 위 / 그림만 / 글만 중 하나)
+그림1: (이 쪽 장면 설명 한 줄)
+
+2쪽:
+(글)
+모양2: (모양)
+그림2: (장면)
+
+… ${n}쪽까지 같은 형식으로.`;
 }
 // 쪽마다 구도를 돌아가며 바꿔서 비슷한 그림이 연달아 나오지 않게 해요
 const AI_SHOTS = [
@@ -2710,6 +2773,7 @@ const AI_SHOTS = [
   "중간 거리에서 본 장면. 주인공과 다른 인물이 함께 어울리는 모습",
   "아래에서 올려다본 장면. 주인공이 당당하고 크게 보이게"
 ];
+const aiLayHint = k => ({ full:"아래쪽 3분의 1에는 글이 올라가니 바닥이나 풀밭처럼 단순하게 비워 둬", fulltop:"위쪽 3분의 1에는 글이 올라가니 하늘이나 벽처럼 단순하게 비워 둬", only:"글 없이 그림만으로 이야기가 전해지는 가장 극적인 장면" })[aiLayOf(k)] || "";
 function aiOpenGemini(){ try { window.open("https://gemini.google.com/app", "gemini"); } catch(e){} }
 function aiImgPrompt(k){
   const chx = (AI.char2 || AI.char || "").trim() || "줄거리에 어울리는 귀여운 주인공";
@@ -2722,25 +2786,29 @@ ${tail}`;
   const pg = AI.items[+k - 1] || {}, sc = (pg.scene || "").trim() || (pg.text || "").trim();
   return `그림책 ${k}쪽 삽화를 새로 1장 그려 줘. 이전 그림이 있어도 고치거나 이어 그리지 말고, 처음부터 완전히 새로운 그림으로 그려 줘.
 - 장면: ${sc}
-- 구도: ${AI_SHOTS[(+k - 1) % AI_SHOTS.length]}
+- 구도: ${AI_SHOTS[(+k - 1) % AI_SHOTS.length]}${aiLayHint(k) ? ". " + aiLayHint(k) : ""}
 - 주인공 생김새 (이것만 다른 그림과 똑같이): ${chx}
 ${tail}`;
 }
 function parseAiText(t){
-  const out = { title:"", char:"", items:[] }; let cur = null;
+  const out = { title:"", char:"", items:[] }; let cur = null, gap = false;
   const lines = String(t || "").replace(/\r/g, "").split("\n").map(l => l.replace(/\*\*|__/g, "").replace(/^[\s>#*•-]+/, "").trim());
-  const slot = i => (out.items[i - 1] = out.items[i - 1] || { text:"", scene:"" });
+  const slot = i => (out.items[i - 1] = out.items[i - 1] || { text:"", scene:"", lay:"" });
+  const none = s => /^\(?\s*(글\s*)?없음\s*\)?$/.test(s.trim());
   for (const l of lines){
     let m;
     if ((m = l.match(/^제\s*목\s*[:：]\s*(.*)$/))){ out.title = m[1].replace(/^["'“‘《「『<\[(]+|["'”’》」』>\])]+$/g, "").trim(); cur = null; continue; }
     if ((m = l.match(/^주\s*인\s*공\s*[:：]\s*(.*)$/))){ out.char = m[1].trim(); cur = null; continue; }
-    if ((m = l.match(/^(\d{1,2})\s*쪽\s*[:：.)]\s*(.*)$/))){ slot(+m[1]).text = m[2].trim(); cur = { i:+m[1], k:"text" }; continue; }
+    if ((m = l.match(/^(\d{1,2})\s*쪽\s*[:：.)]?\s*(.*)$/)) && (m[2] || /[:：.)]/.test(l) || /^\d{1,2}\s*쪽$/.test(l))){ slot(+m[1]).text = none(m[2]) ? "" : m[2].trim(); cur = { i:+m[1], k:"text" }; gap = false; continue; }
+    if ((m = l.match(/^모\s*양\s*(\d{1,2})\s*[:：.)]\s*(.*)$/))){ const key = LAY_KEY[m[2].replace(/[\s·.,()'"\[\]]/g, "")]; if (key) slot(+m[1]).lay = key; cur = null; continue; }
     if ((m = l.match(/^(?:그림|장면|삽화)\s*(\d{1,2})\s*[:：.)]\s*(.*)$/))){ slot(+m[1]).scene = m[2].trim(); cur = { i:+m[1], k:"scene" }; continue; }
-    // 빈 줄이 나오면 이어 쓰기를 멈춰요 (Gemini의 끝인사가 마지막 쪽에 붙지 않게)
-    if (!l){ cur = null; continue; }
-    if (cur && cur.k === "text"){ const it = out.items[cur.i - 1]; it.text = it.text ? it.text + "\n" + l : l; }
+    if (!cur || cur.k !== "text") continue;
+    if (!l){ gap = true; continue; }
+    if (none(l)) continue;
+    const it = out.items[cur.i - 1];
+    it.text = it.text ? it.text + (gap ? "\n\n" : "\n") + l : l; gap = false;
   }
-  out.items = out.items.filter(Boolean);
+  out.items = out.items.filter(Boolean).map(it => ({ ...it, text:it.text.replace(/\n{3,}/g, "\n\n").trim() }));
   return out;
 }
 async function aiCopy(text, label){
@@ -2753,16 +2821,17 @@ async function aiCopy(text, label){
   }
 }
 const isGrp = k => /^g\d+$/.test(String(k));
-const aiGroups = () => { const out = []; for (let i = 0; i < AI.items.length; i += 4) out.push(AI.items.slice(i, i + 4).map((_, j) => String(i + j + 1))); return out; };
+const aiGroups = () => { const ks = aiKeys().slice(1), out = []; for (let i = 0; i < ks.length; i += 4) out.push(ks.slice(i, i + 4)); return out; };
 const aiGroupOf = k => aiGroups().findIndex(g => g.includes(String(k)));
-const aiLabelX = k => { if (!isGrp(k)) return aiLabel(k); const g = aiGroups()[+k.slice(1)] || []; return `${g[0]}~${g[g.length - 1]}쪽`; };
+const aiGrpName = g => g.length && +g[g.length - 1] - +g[0] === g.length - 1 ? `${g[0]}~${g[g.length - 1]}쪽` : `${g.join("·")}쪽`;
+const aiLabelX = k => isGrp(k) ? aiGrpName(aiGroups()[+k.slice(1)] || []) : aiLabel(k);
 const AI_POS = ["왼쪽 위", "오른쪽 위", "왼쪽 아래", "오른쪽 아래"];
 function aiGridPrompt(gi){
   const g = aiGroups()[gi] || [], chx = (AI.char2 || AI.char || "").trim() || "줄거리에 어울리는 귀여운 주인공";
   const lines = AI_POS.map((p, j) => {
     const k = g[j]; if (!k) return `${p} 칸 (예비 그림): 앞 칸들과 다른 곳에서 주인공이 웃고 있는 장면`;
     const it = AI.items[+k - 1] || {}, sc = (it.scene || "").trim() || (it.text || "").trim();
-    return `${p} 칸 (${k}쪽): ${sc} / 구도: ${AI_SHOTS[(+k - 1) % AI_SHOTS.length]}`;
+    return `${p} 칸 (${k}쪽): ${sc} / 구도: ${AI_SHOTS[(+k - 1) % AI_SHOTS.length]}${aiLayHint(k) ? " / " + aiLayHint(k) : ""}`;
   });
   return `그림책 삽화 4장면을 한 장의 그림 안에 2×2 칸(가로 2칸, 세로 2칸)으로 나눠 그려 줘. 이전 그림이 있어도 고치지 말고 처음부터 새로 그려 줘.
 - 칸 사이에는 같은 굵기의 흰색 띠를 넣고, 바깥 테두리는 넣지 마.
@@ -2847,10 +2916,8 @@ function aiRowHTML(k, mini){
   return `<div class="airow${mini ? " mini" : ""}${AI.active === k ? " on" : ""}" data-k="${k}">
     <div class="aithumb">${img ? `<img src="${img}" alt="${aiLabel(k)} 그림">` : mini ? "그림 없음" : "그림을 복사한 뒤<br>이 칸을 누르고<br>Ctrl+V"}</div>
     <div style="min-width:0">
-      <span class="lb">${aiLabel(k)}</span><span class="pastehere">← 여기에 붙여 넣어요 (Ctrl+V)</span>
-      ${it ? `<textarea rows="2" data-t="${k}" aria-label="${k}쪽 글">${esc(it.text)}</textarea>
-        <input type="text" class="scene" data-s="${k}" value="${esc(it.scene)}" placeholder="그림 장면 설명" aria-label="${k}쪽 그림 장면">`
-        : `<p class="aihint" style="margin:4px 0 8px">책 제목과 주인공으로 표지 그림 질문을 만들어요. (제목 글자는 앱이 따로 넣어요)</p>`}
+      <span class="lb">${aiLabel(k)}</span>${it ? ` <small style="color:var(--ink-soft)">${esc(layName(aiLayOf(k)))}</small>` : ""}<span class="pastehere">← 여기에 붙여 넣어요 (Ctrl+V)</span>
+      <p class="scn">${it ? esc(it.scene || it.text) : "책 제목과 주인공으로 표지 그림 질문을 만들어요. (제목 글자는 앱이 따로 넣어요)"}</p>
       <div class="row">
         ${mini ? `<button type="button" class="btn ghost small" data-cp="${k}">이 쪽만 다시</button>`
           : `<button type="button" class="btn sun small" data-cp="${k}">복사하고 새 채팅 열기</button><button type="button" class="btn ghost small" data-cp1="${k}">질문만 복사</button>`}
@@ -2858,6 +2925,26 @@ function aiRowHTML(k, mini){
         ${img ? `<button type="button" class="btn ghost small" data-rm="${k}">빼기</button>` : ""}
       </div>
     </div></div>`;
+}
+function aiCnt(k){
+  const l = aiLayOf(k), n = ((AI.items[+k - 1] || {}).text || "").replace(/\s/g, "").length, max = LIMITS[l][0];
+  if (l === "only") return { t: n ? "그림만 쪽은 글이 안 보여요" : "글 없이 그림만", warn: !!n };
+  return { t: `${n} / ${max}자`, warn: n > max };
+}
+function aiRenderPages(){
+  const el = $("#aiPagesBox"); if (!el || !AI) return;
+  el.innerHTML = AI.items.map((it, i) => { const k = String(i + 1), l = aiLayOf(k), c = aiCnt(k);
+    return `<div class="aipg">
+      <b>${k}쪽</b>
+      <div><select data-l="${k}" aria-label="${k}쪽 모양">${LAYOUTS.map(([v, nm]) => `<option value="${v}"${v === l ? " selected" : ""}>${nm}</option>`).join("")}</select>
+        <div class="cnt${c.warn ? " warn" : ""}" data-c="${k}" style="margin-top:4px">${c.t}</div></div>
+      <div>
+        <textarea rows="${Math.min(7, Math.max(2, (it.text.match(/\n/g) || []).length + 1))}" data-t="${k}" aria-label="${k}쪽 글" placeholder="${l === "only" ? "그림만 쪽은 글을 비워 둬요" : "이 쪽 글"}">${esc(it.text)}</textarea>
+        ${l === "text" ? "" : `<input type="text" class="scene" data-s="${k}" value="${esc(it.scene)}" placeholder="그림 장면 설명" aria-label="${k}쪽 그림 장면">`}
+      </div></div>`; }).join("");
+  el.querySelectorAll("[data-t]").forEach(x => x.oninput = () => { const k = x.dataset.t; AI.items[+k - 1].text = x.value; const c = aiCnt(k), cel = el.querySelector(`[data-c="${k}"]`); cel.textContent = c.t; cel.className = "cnt" + (c.warn ? " warn" : ""); aiSave(); });
+  el.querySelectorAll("[data-s]").forEach(x => x.oninput = () => { AI.items[+x.dataset.s - 1].scene = x.value; aiSave(); });
+  el.querySelectorAll("[data-l]").forEach(x => x.onchange = () => { AI.items[+x.dataset.l - 1].lay = x.value; aiSaveDraft(); aiRenderPages(); aiRenderRows(); });
 }
 function aiRenderRows(){
   const el = $("#aiRows"); if (!el || !AI) return;
@@ -2868,7 +2955,7 @@ function aiRenderRows(){
     const k = "g" + gi, done = g.filter(p => AI.imgs[p]).length;
     return `<div class="aigrp${AI.active === k ? " on" : ""}" data-k="${k}">
       <div class="row" style="justify-content:space-between">
-        <div><span class="lb">${g[0]}~${g[g.length - 1]}쪽 한 번에</span>&nbsp; <small style="color:var(--ink-soft)">그림 ${done}/${g.length}</small><span class="pastehere">← 4칸 그림을 여기에 붙여 넣어요 (Ctrl+V)</span></div>
+        <div><span class="lb">${aiGrpName(g)} 한 번에</span>&nbsp; <small style="color:var(--ink-soft)">그림 ${done}/${g.length}</small><span class="pastehere">← 4칸 그림을 여기에 붙여 넣어요 (Ctrl+V)</span></div>
         <div class="row">
           <button type="button" class="btn sun small" data-cp="${k}">복사하고 새 채팅 열기</button>
           <button type="button" class="btn ghost small" data-cp1="${k}">질문만 복사</button>
@@ -2879,8 +2966,6 @@ function aiRenderRows(){
     </div>`;
   }).join("");
   el.querySelectorAll("[data-k]").forEach(r => r.addEventListener("click", e => { e.stopPropagation(); aiSetActive(r.dataset.k); }));
-  el.querySelectorAll("[data-t]").forEach(x => x.oninput = () => { AI.items[+x.dataset.t - 1].text = x.value; aiSave(); });
-  el.querySelectorAll("[data-s]").forEach(x => x.oninput = () => { AI.items[+x.dataset.s - 1].scene = x.value; aiSave(); });
   el.querySelectorAll("[data-cp]").forEach(x => x.onclick = async e => { e.stopPropagation(); const k = x.dataset.cp; aiSetActive(k); await aiCopy(aiPromptFor(k), `${aiLabelX(k)} 그림 질문`); aiOpenGemini(); });
   el.querySelectorAll("[data-cp1]").forEach(x => x.onclick = e => { e.stopPropagation(); const k = x.dataset.cp1; aiSetActive(k); aiCopy(aiPromptFor(k), `${aiLabelX(k)} 그림 질문`); });
   el.querySelectorAll("[data-pick]").forEach(x => x.onclick = async e => { e.stopPropagation(); const k = x.dataset.pick; aiSetActive(k); const f = await pickFile("image/*"); if (f) aiSetImg(k, f); });
@@ -2892,7 +2977,8 @@ function aiFill(){
   $("#aiGrade").innerHTML = opt([1,2,3,4,5,6].map(n => [n, `${n}학년`]), AI.grade);
   $("#aiPages").innerHTML = opt([4,5,6,7,8,9,10,11,12].map(n => [n, `${n}쪽`]), AI.pages);
   $("#aiStyle").innerHTML = opt(AI_STYLES.map(s => [s, s]), AI.style);
-  $("#aiLay").innerHTML = opt(AI_LAYS.map(([k, l]) => [k, `${l} (글 ${LIMITS[k][0]}자까지)`]), AI.lay);
+  if (!AI_LAYS.some(([k]) => k === AI.lay)) AI.lay = "mix";
+  $("#aiLay").innerHTML = opt(AI_LAYS.map(([k, l]) => [k, k === "mix" ? l : `모두 ${l} (글 ${LIMITS[k][0]}자까지)`]), AI.lay);
   if (!THEMES.some(t => t.id === AI.th)) AI.th = S.viewTheme || ACTIVE;
   $("#aiTh").innerHTML = opt(THEMES.map(t => [t.id, t.name + (isGroupTh(t.id) ? " (모둠)" : "")]), AI.th);
   $("#aiStyleF").hidden = AI.style !== "직접 쓰기";
@@ -2900,7 +2986,7 @@ function aiFill(){
   $("#aiS2").hidden = AI.step < 2; $("#aiS3").hidden = AI.step < 3; $("#aiSave").hidden = AI.step < 3;
   $("#aiReadMsg").textContent = AI.step >= 3 ? `${AI.items.length}쪽을 읽었어요` : "";
   $("#aiErr").textContent = "";
-  aiRenderRows();
+  aiRenderPages(); aiRenderRows();
 }
 function aiReadInputs(){
   AI.plot = $("#aiPlot").value; AI.grade = +$("#aiGrade").value; AI.pages = +$("#aiPages").value;
@@ -2917,7 +3003,8 @@ async function openAi(){
   const d = $("#aiDlg");
   aiFill();
   ["#aiPlot", "#aiChar", "#aiStyleTx", "#aiA1"].forEach(s => $(s).oninput = () => { aiReadInputs(); AI.a1 = $("#aiA1").value; aiSave(); });
-  ["#aiGrade", "#aiPages", "#aiLay", "#aiTh"].forEach(s => $(s).onchange = () => { aiReadInputs(); aiSave(); });
+  ["#aiGrade", "#aiPages", "#aiTh"].forEach(s => $(s).onchange = () => { aiReadInputs(); aiSave(); });
+  $("#aiLay").onchange = () => { aiReadInputs(); if (AI.lay !== "mix") AI.items.forEach(it => it.lay = ""); aiSaveDraft(); aiRenderPages(); aiRenderRows(); };
   $("#aiStyle").onchange = () => { aiReadInputs(); $("#aiStyleF").hidden = AI.style !== "직접 쓰기"; aiSave(); };
   $("#aiTitle").oninput = $("#aiChar2").oninput = () => { aiReadInputs(); aiSave(); };
   $("#aiMake1").onclick = () => {
@@ -2934,7 +3021,7 @@ async function openAi(){
     const r = parseAiText(AI.a1);
     if (!r.items.length || !r.items.some(i => i.text)){ $("#aiReadMsg").textContent = ""; $("#aiErr").textContent = "답에서 '1쪽:', '2쪽:' 같은 줄을 찾지 못했어요. Gemini 답을 통째로 붙여 넣었는지 확인해 주세요."; return; }
     if (AI.step >= 3 && AI.items.length && !await ask({ title:"답 다시 읽기", text:"지금 고친 글과 장면이 새 답으로 바뀌어요. 넣어 둔 그림은 그대로 남아요.", ok:"다시 읽기" })) return;
-    AI.items = r.items.map(i => ({ text:i.text, scene:i.scene }));
+    AI.items = r.items.map(i => ({ text:i.text, scene:i.scene, lay:(!AI.lay || AI.lay === "mix") ? i.lay : "" }));
     AI.title = r.title || AI.title; AI.char2 = r.char || AI.char2 || AI.char;
     Object.keys(AI.imgs).forEach(k => { if (k !== "cover" && +k > AI.items.length) delete AI.imgs[k]; });
     AI.step = 3; AI.active = AI.imgs.cover ? (aiKeys().find(k => !AI.imgs[k]) || "cover") : "cover";
@@ -2979,12 +3066,13 @@ async function aiSaveBook(){
   err.textContent = "저장하고 있어요…";
   try {
     const id = uid(), now = Date.now();
-    const pages = AI.items.map((it, i) => ({ pid:uid() + i, text:it.text.trim(), layout:AI.imgs[String(i + 1)] ? AI.lay : "text", hasImg:!!AI.imgs[String(i + 1)] }));
+    const pages = AI.items.map((it, i) => { const k = String(i + 1), l = aiLayOf(k), has = l !== "text" && !!AI.imgs[k];
+      return { pid:uid() + i, text:(l === "only" && has) ? "" : it.text.trim(), layout:has ? l : "text", hasImg:has }; });
     const book = { author:"선생님", title, num:0, theme:th, pin:CONFIG.TEACHER_PIN, pages, ai:true, created:now, updated:now };
     await api("PUT", `books/${id}`, book);
-    for (let i = 0; i < pages.length; i++){ const im = AI.imgs[String(i + 1)]; if (im) await api("PUT", `imgs/${id}/${pages[i].pid}`, im); }
+    for (let i = 0; i < pages.length; i++){ const im = AI.imgs[String(i + 1)]; if (im && pages[i].hasImg) await api("PUT", `imgs/${id}/${pages[i].pid}`, im); }
     if (AI.imgs.cover) await api("PUT", `imgs/${id}/cover`, AI.imgs.cover);
-    const tsrc = AI.imgs.cover || pages.map((p, i) => AI.imgs[String(i + 1)]).find(Boolean);
+    const tsrc = AI.imgs.cover || pages.map((p, i) => p.hasImg && AI.imgs[String(i + 1)]).find(Boolean);
     await api("PUT", `shelf/${id}`, { title, author:book.author, num:0, theme:th, pages:pages.length,
       written:pages.filter(p => p.text).length, updated:now, thumb: tsrc ? await shrink(tsrc, 260, 0.75) : null });
     localStorage.removeItem(AI_KEY); AI = null;
