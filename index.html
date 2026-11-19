@@ -230,6 +230,11 @@ dialog{border:0;border-radius:18px;padding:26px;max-width:min(420px,92vw);width:
 dialog::backdrop{background:rgba(28,42,72,.45)}
 dialog h3{font-family:var(--display);font-weight:400;font-size:26px;margin:0 0 14px}
 dialog .err{color:var(--coral);font-size:15px;min-height:22px;margin:6px 0}
+.lgths{display:grid;grid-template-columns:1fr;gap:6px;max-height:34vh;overflow:auto}
+.lgths button{text-align:left;line-height:1.35;border-radius:12px!important}
+.lgths button small{display:block;font-family:var(--body);font-size:13px;opacity:.8}
+.lgpick{margin:0 0 10px;padding:10px 12px;border-radius:12px;background:#FFF6D8;font-size:15px}
+.thchip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;background:#FFF6D8;border:2px solid var(--sun);font-size:14px;font-family:var(--display);max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
 .toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -337,7 +342,8 @@ dialog.ai{max-width:min(900px,96vw);max-height:94vh;overflow:auto}
 
 <dialog id="login">
   <h3>내 책 열기</h3>
-  <div class="field" id="lgThF"><span>어느 책장에 쓸까요?</span><select id="lgTh"></select></div>
+  <div class="field" id="lgThF"><span>① 어느 책장에 쓸까요? <small style="font-family:var(--body);font-size:13px;color:var(--coral)">꼭 골라요</small></span><div class="seg big lgths" id="lgThBtns"></div><select id="lgTh" hidden aria-hidden="true"></select></div>
+  <p id="lgPick" class="lgpick">먼저 위에서 <b>책장</b>을 골라 주세요.</p>
   <div class="field" id="lgGrpF" style="display:none"><span>우리 모둠</span><div class="seg big" id="lgGrp"></div></div>
   <div class="field" id="lgMemF" style="display:none"><span>내 번호</span><div class="seg big" id="lgMem"></div></div>
   <div class="field" id="lgNumF"><span>번호</span><select id="lgNum"></select></div>
@@ -1126,7 +1132,7 @@ async function showShelf(){
     if (!await ask({ title:"전체 PDF 받기", text:`책 ${list.length}권을 번호순으로 한 파일에 담아요.\n책이 많으면 몇 분 걸릴 수 있어요.`, ok:"받기" })) return;
     exportPDF(list.map(([id]) => [id]), `${safeName(libName())}_그림책_${themeName(vt)}.pdf`.replace(/[\\/:*?"<>|]/g, ""));
   };
-  document.querySelectorAll("[data-th]").forEach(t => t.onclick = () => { S.viewTheme = t.dataset.th; showShelf(); });
+  document.querySelectorAll("[data-th]").forEach(t => t.onclick = () => { S.viewTheme = t.dataset.th; S.thPicked = t.dataset.th; showShelf(); });
   if ($("#newTheme")) $("#newTheme").onclick = async () => {
     const name = await ask({ title:"새 책장 만들기", text:"새 주제의 이름을 적어 주세요.\n새 책장이 기본 책장이 돼요.\n학생들은 로그인할 때 다른 책장도 고를 수 있고,\n지금까지 만든 책은 원래 책장에 그대로 남아요.", input:{ placeholder:"예: 자유 주제" }, ok:"만들기" });
     if (name === false) return;
@@ -1309,15 +1315,24 @@ async function makeAllGroupBooks(th){
 async function openLogin(){
   const d = $("#login"); $("#lgName").value=""; $("#lgPin").value=""; $("#lgErr").textContent=""; LG = { g:0, m:0 };
   try { S.shelf = await api("GET","shelf") || {}; await loadRoster(); } catch(e){}
-  const start = THEMES.some(t => t.id === S.viewTheme) ? S.viewTheme : ACTIVE;
-  $("#lgTh").innerHTML = THEMES.map(t => `<option value="${t.id}"${t.id === start ? " selected" : ""}>${esc(t.name)}${t.id === ACTIVE ? " (기본)" : ""}</option>`).join("");
+  const start = THEMES.length <= 1 ? (THEMES[0] || {}).id || ACTIVE : (THEMES.some(t => t.id === S.thPicked) ? S.thPicked : "");
+  $("#lgTh").innerHTML = `<option value=""></option>` + THEMES.map(t => `<option value="${t.id}"${t.id === start ? " selected" : ""}>${esc(t.name)}</option>`).join("");
   $("#lgThF").style.display = THEMES.length > 1 ? "" : "none";
+  lgThBtns();
   lgThChanged(); openDlg(d);
 }
-const lgTheme = () => $("#lgTh").value || ACTIVE;
+const lgTheme = () => $("#lgTh").value || (THEMES.length > 1 ? "" : ACTIVE);
+function lgThBtns(){
+  const cur = $("#lgTh").value;
+  $("#lgThBtns").innerHTML = THEMES.map(t => `<button type="button" data-lth="${t.id}" aria-pressed="${t.id === cur}">${esc(t.name)}${isGroupTh(t.id) ? "<small>모둠 책장</small>" : ""}</button>`).join("");
+  document.querySelectorAll("#lgThBtns [data-lth]").forEach(b => b.onclick = () => { $("#lgTh").value = b.dataset.lth; lgThBtns(); lgThChanged(); });
+}
 let LG = { g:0, m:0 };   // 모둠 책장에서 고른 모둠, 내 번호
 function lgThChanged(){
-  const th = lgTheme(), keep = $("#lgNum").value, grp = isGroupTh(th);
+  const th = lgTheme(), keep = $("#lgNum").value;
+  $("#lgPick").style.display = th ? "none" : "";
+  if (!th){ ["#lgNumF","#lgPinF","#lgHint","#lgNameF","#lgGrpF","#lgMemF","#lgWho"].forEach(k => $(k).style.display = "none"); $("#login h3").textContent = "내 책 열기"; $("#lgErr").textContent = ""; return; }
+  const grp = isGroupTh(th);
   ["#lgNumF","#lgPinF","#lgHint"].forEach(k => $(k).style.display = grp ? "none" : "");
   $("#lgGrpF").style.display = grp ? "" : "none";
   if (grp){ $("#lgMemF").style.display = "none"; LG = { g:0, m:0 }; $("#login h3").textContent = `모둠 책 열기 · ${themeName(th)}`; lgGrpRender(); return; }
@@ -1348,10 +1363,12 @@ function lgGrpRender(){
   $("#lgErr").textContent = "";
 }
 function lgNumChanged(){
-  const n = $("#lgNum").value, f = n && bookByNum(n, lgTheme()), who = $("#lgWho");
-  $("#lgNameF").style.display = f ? "none" : "";
-  who.style.display = f ? "" : "none";
-  if (f) who.textContent = `${n}번 ${f[1].author}의 '${themeName(lgTheme())}' 책이에요. 비밀번호를 적어 주세요.`;
+  const th = lgTheme(), n = $("#lgNum").value, f = n && th && bookByNum(n, th), who = $("#lgWho");
+  $("#lgNameF").style.display = f || !n ? "none" : "";
+  const others = n ? THEMES.filter(t => t.id !== th && bookByNum(n, t.id)).map(t => `'${t.name}'`) : [];
+  if (f) who.innerHTML = `<b>${n}번 ${esc(f[1].author)}</b>의 '${esc(themeName(th))}' 책이에요. 비밀번호를 적어 주세요.`;
+  else if (n) who.innerHTML = `'<b>${esc(themeName(th))}</b>' 책장에는 아직 ${n}번 책이 없어요. <b>새 책</b>이 만들어져요.${others.length ? `<br><small style="color:var(--ink-soft)">(${esc(others.join(", "))} 책장에 쓴 책은 그대로 있어요)</small>` : ""}`;
+  who.style.display = n ? "" : "none";
   $("#lgErr").textContent = "";
 }
 $("#lgNum").onchange = lgNumChanged;
@@ -1375,6 +1392,7 @@ async function openGroupLogin(){
   } catch(e){ err.textContent = "연결이 안 돼요. 인터넷을 확인하고 다시 눌러 주세요."; }
 }
 $("#lgGo").onclick = async () => {
+  if (!lgTheme()){ $("#lgErr").textContent = "어느 책장에 쓸지 먼저 골라 주세요."; return; }
   if (isGroupTh(lgTheme())) return openGroupLogin();
   const num = +$("#lgNum").value, name = $("#lgName").value.trim(), pin = $("#lgPin").value.trim(), err = $("#lgErr");
   if (!num){ err.textContent = "번호를 골라 주세요."; return; }
@@ -1492,6 +1510,7 @@ function renderEditor(){
   <div class="bar"><div class="in">
     <button class="btn ghost small" id="back">← 책장</button>
     <h2>${esc(b.title || "제목 없는 책")}</h2>
+    ${THEMES.length > 1 ? `<span class="thchip" title="${esc(themeName(themeOf(b)))}">📚 ${esc(themeName(themeOf(b)))}</span>` : ""}
     ${S.grp ? `<span class="status">${esc(b.author)} · 나: <b>${esc(ME())}</b></span>` : ""}
     <span class="status" id="status">저장됨</span>
     ${b.done ? `<button class="btn fin-on small" id="fin">✓ 완료했어요</button>`
