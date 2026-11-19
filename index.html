@@ -279,6 +279,18 @@ dialog .err.okmsg,.okmsg{color:var(--leaf);font-weight:bold}
 .imp{list-style:none;padding:0;margin:0 0 8px}
 .imp li{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
 .imp li select{width:auto;flex:1;min-width:160px}
+.thl{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px;max-height:56vh;overflow:auto}
+.thl li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border:2px solid var(--line);border-radius:12px;background:#fff}
+.thl li.on{border-color:var(--ink)}
+.thl .mv{display:flex;flex-direction:column;gap:4px}
+.thl .mv button{width:34px;height:26px;border-radius:8px;border:2px solid var(--line);font-size:13px;line-height:1}
+.thl .mv button:disabled{opacity:.3}
+.thl b{font-family:var(--display);font-weight:400;font-size:19px;overflow-wrap:anywhere}
+.thl small{display:block;font-size:13px;color:var(--ink-soft)}
+.thl .acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.thl .acts button{min-height:34px;padding:0 12px;font-size:14px}
+.btn.exon{background:#E3F4EC;color:var(--leaf);border:2px solid var(--leaf)}
+@media(max-width:620px){.thl li{grid-template-columns:auto minmax(0,1fr)}.thl .acts{grid-column:1/-1;justify-content:flex-start}}
 /* ---------- AI 예시 책 도우미 ---------- */
 dialog.ai{max-width:min(900px,96vw);max-height:94vh;overflow:auto}
 .ai .two{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
@@ -545,6 +557,17 @@ dialog.ai{max-width:min(900px,96vw);max-height:94vh;overflow:auto}
     </div>
   </div>
 </dialog>
+<dialog id="thDlg" class="wide">
+  <h3>책장 관리</h3>
+  <p style="margin:-6px 0 12px;font-size:15px;color:var(--ink-soft)">위아래 화살표로 순서를 바꿔요. 이 순서대로 책장 단추가 보여요.<br>예시 책은 기본으로 꺼져 있어요. 켠 책장에서만 학생들에게 예시 책이 보여요.</p>
+  <ul class="thl" id="thList"></ul>
+  <div class="row" style="margin-bottom:6px">
+    <button type="button" class="btn small" id="thAdd">+ 새 책장</button>
+    <button type="button" class="btn small" id="thAddG">+ 새 모둠 책장</button>
+  </div>
+  <div class="err" id="thErr"></div>
+  <div class="row" style="justify-content:flex-end"><button type="button" class="btn sun" id="thClose">다 했어요</button></div>
+</dialog>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -568,7 +591,7 @@ const firebaseConfig = {
 };
 const CONFIG = {
   CLASS_NAME: "5학년 3반",   // 도서관 이름 앞에 붙어요 (예: 3학년 2반)
-  TEACHER_PIN: "0503",     // 선생님 모드 비밀번호
+  TEACHER_PIN: "050300",     // 선생님 모드 비밀번호
   MAX_NUMBER: 24,          // 마지막 번호 (선생님 모드 '번호 설정'에서도 바꿀 수 있어요)
   SKIP_NUMBERS: [],        // 없는 번호
   DEFAULT_PAGES: 1
@@ -857,6 +880,8 @@ function titleUnset(b){
     || (b.grp != null && t === `${b.grp}모둠의 이야기`) || (ex && t === (ex[1].title || "").trim());
 }
 const isExample = b => b && b.num != null && b.num !== "" && +b.num === 0;   // 0번 = 선생님 예시 책
+// 예시 책은 기본으로 꺼져 있어요. 책장마다 '책장 관리'에서 켜면 보여요
+const exOn = th => !!(THEMES.find(t => t.id === th) || {}).ex;
 
 /* ---------- 도우미 ---------- */
 function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove("on"),2200); }
@@ -942,7 +967,7 @@ async function showShelf(){
   catch(e){ S.shelf = {}; toast("책장을 불러오지 못했어요. 인터넷 연결을 확인하세요."); }
   if (!S.teacher) for (const k in S.shelf) if (!S.shelf[k].author) delete S.shelf[k];
   const vt = S.viewTheme;
-  const ex = Object.entries(S.shelf).filter(([,b]) => isExample(b) && themeOf(b) === vt).sort((a,b) => (b[1].updated||0) - (a[1].updated||0))[0];
+  const ex = findExample(vt), exHere = exOn(vt);
   const list = Object.entries(S.shelf).filter(([,b]) => !isExample(b) && themeOf(b) === vt).sort((a,b) =>
     sortKey(a[1]) - sortKey(b[1]) || (b[1].updated||0) - (a[1].updated||0));
   const isG = isGroupTh(vt), gs = groupsOf(vt);
@@ -980,8 +1005,8 @@ async function showShelf(){
   }
   const themeRow = `
       <div class="row" style="margin-bottom:12px">
-        <button class="btn small" id="newTheme">+ 새 책장 만들기</button>
-        <button class="btn small" id="newGTheme">+ 새 모둠 책장 만들기</button>
+        <button class="btn small" id="thMgr">책장 관리</button>
+        <button class="btn ghost small" id="exTgl">예시 책 ${exHere ? "켜짐" : "꺼짐"}</button>
         <button class="btn ghost small" id="renTheme">책장 이름 바꾸기</button>
         ${vt !== ACTIVE ? `<button class="btn ghost small" id="useTheme">기본 책장으로 정하기</button>` : ""}
         ${!isG && !list.length ? `<button class="btn ghost small" id="toGroup">모둠 책장으로 바꾸기</button>` : ""}
@@ -992,7 +1017,7 @@ async function showShelf(){
       <div class="top">
         <h3>${esc(themeName(vt))} · 모둠 책 <span style="font-size:16px;color:var(--ink-soft)">책 ${gStat.length} / ${gs.length} · <b style="color:var(--leaf)">완료 ${gStat.filter(([,b]) => b.done || b.rev === "ok").length}</b> · <b style="color:var(--coral)">통과 ${gStat.filter(([,b]) => b.rev === "ok").length}</b></span></h3>
         <div class="row"><button class="btn sun small" id="allPdf">전체 PDF 받기</button>
-        <button class="btn ghost small" id="exBook">${ex ? "예시 책 고치기" : "예시 책 만들기"}</button>
+        ${exHere ? `<button class="btn ghost small" id="exBook">${ex ? "예시 책 고치기" : "예시 책 만들기"}</button>` : ""}
         <button class="btn ghost small" id="setGrp">모둠 정하기</button>
         ${gs.length && gStat.length < gs.length ? `<button class="btn small" id="makeAll">모둠 책 한꺼번에 만들기</button>` : ""}
         <button class="btn ghost small" id="setNums">번호 설정</button></div>
@@ -1014,7 +1039,7 @@ async function showShelf(){
       <div class="top">
         <h3>${esc(themeName(vt))} · 제출 확인 <span style="font-size:16px;color:var(--ink-soft)">책 만든 사람 ${made} / ${nums.length} · <b style="color:var(--leaf)">완료 ${fin}</b> · <b style="color:var(--coral)">통과 ${okN}</b> / ${nums.length}</span></h3>
         <div class="row"><button class="btn sun small" id="allPdf">전체 PDF 받기</button>
-        <button class="btn ghost small" id="exBook">${ex ? "예시 책 고치기" : "예시 책 만들기"}</button>
+        ${exHere ? `<button class="btn ghost small" id="exBook">${ex ? "예시 책 고치기" : "예시 책 만들기"}</button>` : ""}
         <button class="btn ghost small" id="setNums">번호 설정</button></div>
       </div>
       ${themeRow}
@@ -1130,6 +1155,11 @@ async function showShelf(){
     try { const book = await api("GET", `books/${x.dataset.gedit}`); if (book) openEditor(x.dataset.gedit, book); else toast("책을 찾지 못했어요"); }
     catch(e){ toast("열지 못했어요. 인터넷을 확인하세요"); }
   });
+  if ($("#thMgr")) $("#thMgr").onclick = openThemes;
+  if ($("#exTgl")) $("#exTgl").onclick = async () => {
+    const on = !exHere;
+    try { await setThemeEx(vt, on); toast(on ? "이 책장에 예시 책이 보여요" : "이 책장에서 예시 책을 숨겼어요"); showShelf(); } catch(e){ toast("바꾸지 못했어요"); }
+  };
   if ($("#renTheme")) $("#renTheme").onclick = async () => {
     const name = await ask({ title:"책장 이름 바꾸기", input:{ value:themeName(vt) }, ok:"바꾸기" });
     if (name === false || !name.trim()) return;
@@ -1207,8 +1237,8 @@ function editGroups(th){
 }
 // 선생님 예시 책 찾기: 이 책장 것이 먼저, 없으면 가장 최근에 고친 예시 책
 function findExample(th){
-  const all = Object.entries(S.shelf).filter(([,b]) => isExample(b)).sort((a,b) => (b[1].updated||0) - (a[1].updated||0));
-  return all.find(([,b]) => themeOf(b) === th) || all[0] || null;
+  if (!exOn(th)) return null;
+  return Object.entries(S.shelf).filter(([,b]) => isExample(b) && themeOf(b) === th).sort((a,b) => (b[1].updated||0) - (a[1].updated||0))[0] || null;
 }
 // 복사할 책의 글·그림을 한 번만 불러와 둬요
 async function loadSource(src){
@@ -2292,7 +2322,9 @@ async function importBooks(src){
         await api("PUT", `shelf/${id}`, { title:book.title, author:book.author, num:0, theme:th, pages:book.pages.length,
           written:book.pages.filter(p => p.text.trim()).length, updated:now, thumb:x.thumb || null });
       }
-      if (themes.length !== THEMES.length){ await saveSettings({ themes, active:ACTIVE }); THEMES = themes; }
+      const used = new Set(picks.map(i => { const v = document.querySelector(`#impList [data-th="${i}"]`).value; return v === "__new" ? made[(j.books[i].themeName || j.books[i].book.title || "새 책장").slice(0, 20)] : v; }));
+      const themes2 = themes.map(t => used.has(t.id) ? { ...t, ex:true } : t);
+      await saveSettings({ themes:themes2, active:ACTIVE }); THEMES = themes2;
       closeDlg(d); toast(`책 ${picks.length}권을 가져왔어요`); showShelf();
     } catch(e){ console.error(e); $("#impErr").textContent = "가져오지 못했어요. 인터넷을 확인하세요."; }
   };
@@ -2668,6 +2700,7 @@ function toolsHTML(){
         <button class="btn ghost small" id="tlCm">감상평 설정</button>
         <button class="btn ghost small" id="tlFriends">이웃 반 도서관</button></div></div>
       <div><b>설정</b><div class="row">
+        <button class="btn ghost small" id="tlThemes">책장 관리</button>
         <button class="btn ghost small" id="tlName">도서관 이름</button>
         <button class="btn ghost small" id="tlSetup">설정 파일 만들기 · 다른 반에 나눠 주기</button></div></div>
     </div>
@@ -2688,6 +2721,7 @@ function wireTools(){
   on("tlCm", openCmSet);
   on("tlFriends", openFriends);
   on("tlName", renameLib);
+  on("tlThemes", openThemes);
   on("tlSetup", openSetup);
 }
 
@@ -3075,6 +3109,7 @@ async function aiSaveBook(){
     const tsrc = AI.imgs.cover || pages.map((p, i) => p.hasImg && AI.imgs[String(i + 1)]).find(Boolean);
     await api("PUT", `shelf/${id}`, { title, author:book.author, num:0, theme:th, pages:pages.length,
       written:pages.filter(p => p.text).length, updated:now, thumb: tsrc ? await shrink(tsrc, 260, 0.75) : null });
+    if (!exOn(th)) await setThemeEx(th, true);
     localStorage.removeItem(AI_KEY); AI = null;
     closeDlg($("#aiDlg")); S.viewTheme = th; toast(`'${title}' 예시 책을 만들었어요`); showShelf();
   } catch(e){ console.error(e); err.textContent = "저장하지 못했어요. 인터넷을 확인하고 다시 눌러 주세요. (만든 내용은 그대로 남아 있어요)"; }
@@ -3085,6 +3120,85 @@ document.addEventListener("paste", e => {
   if (!it) return;
   e.preventDefault(); aiSetImg(AI.active || "cover", it.getAsFile());
 });
+
+/* ---------- 책장 관리 (등록·순서·이름·예시 책·기본·삭제) ---------- */
+async function setThemeEx(th, on){
+  const themes = THEMES.map(t => t.id === th ? { ...t, ex:!!on } : t);
+  await saveSettings({ themes, active:ACTIVE }); THEMES = themes;
+}
+async function openThemes(){
+  const d = $("#thDlg"), err = $("#thErr");
+  try { S.shelf = await api("GET", "shelf") || {}; } catch(e){}
+  await loadRoster();
+  const cnt = th => Object.values(S.shelf).filter(b => themeOf(b) === th && !isExample(b) && b.author).length;
+  const hasEx = th => Object.values(S.shelf).some(b => isExample(b) && themeOf(b) === th);
+  const save = async (themes, active = ACTIVE) => {
+    err.textContent = "저장하고 있어요…";
+    try { await saveSettings({ themes, active }); THEMES = themes; ACTIVE = active; err.textContent = ""; draw(); return true; }
+    catch(e){ err.textContent = "저장하지 못했어요. 인터넷을 확인하세요."; return false; }
+  };
+  const draw = () => {
+    $("#thList").innerHTML = THEMES.map((t, i) => {
+      const n = cnt(t.id), g = Array.isArray(t.groups);
+      return `<li class="${t.id === ACTIVE ? "on" : ""}">
+        <div class="mv"><button type="button" data-up="${i}" aria-label="위로"${i === 0 ? " disabled" : ""}>▲</button><button type="button" data-dn="${i}" aria-label="아래로"${i === THEMES.length - 1 ? " disabled" : ""}>▼</button></div>
+        <div><b>${esc(t.name)}</b><small>${g ? "모둠 책장 · " : ""}학생 책 ${n}권${t.id === ACTIVE ? " · 기본 책장" : ""}${t.ex && !hasEx(t.id) ? " · 예시 책 아직 없음" : ""}</small></div>
+        <div class="acts">
+          <button type="button" class="btn ${t.ex ? "exon" : "ghost"}" data-ex="${i}">예시 책 ${t.ex ? "켜짐" : "꺼짐"}</button>
+          <button type="button" class="btn ghost" data-ren="${i}">이름</button>
+          ${t.id === ACTIVE ? "" : `<button type="button" class="btn ghost" data-def="${i}">기본으로</button>`}
+          <button type="button" class="btn danger" data-del="${i}">지우기</button>
+        </div></li>`;
+    }).join("");
+    const L = $("#thList");
+    L.querySelectorAll("[data-up]").forEach(b => b.onclick = () => { const i = +b.dataset.up, a = THEMES.slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; save(a); });
+    L.querySelectorAll("[data-dn]").forEach(b => b.onclick = () => { const i = +b.dataset.dn, a = THEMES.slice(); [a[i + 1], a[i]] = [a[i], a[i + 1]]; save(a); });
+    L.querySelectorAll("[data-ex]").forEach(b => b.onclick = () => { const i = +b.dataset.ex; save(THEMES.map((t, j) => j === i ? { ...t, ex:!t.ex } : t)); });
+    L.querySelectorAll("[data-def]").forEach(b => b.onclick = () => save(THEMES, THEMES[+b.dataset.def].id));
+    L.querySelectorAll("[data-ren]").forEach(b => b.onclick = async () => {
+      const t = THEMES[+b.dataset.ren];
+      const v = await ask({ title:"책장 이름 바꾸기", input:{ value:t.name }, ok:"바꾸기" });
+      if (v === false || !v.trim()) return;
+      save(THEMES.map(x => x.id === t.id ? { ...x, name:v.trim().slice(0, 30) } : x));
+    });
+    L.querySelectorAll("[data-del]").forEach(b => b.onclick = () => delTheme(THEMES[+b.dataset.del]));
+  };
+  const delTheme = async t => {
+    if (THEMES.length <= 1){ toast("책장은 적어도 하나는 있어야 해요"); return; }
+    try { S.shelf = await api("GET", "shelf") || {}; } catch(e){ toast("책장을 불러오지 못했어요"); return; }
+    const books = Object.entries(S.shelf).filter(([,b]) => themeOf(b) === t.id);
+    const nStu = books.filter(([,b]) => !isExample(b)).length, nEx = books.length - nStu;
+    if (books.length){
+      const v = await ask({ title:`'${t.name}' 책장 지우기`, text:`이 책장에 학생 책 ${nStu}권${nEx ? `, 예시 책 ${nEx}권` : ""}이 있어요.\n책장을 지우면 이 책들과 그림, 감상평도 모두 지워지고 되돌릴 수 없어요.\n(필요하면 먼저 '백업 받기'를 해 두세요)\n\n계속하려면 책장 이름을 그대로 적어 주세요.`, input:{ placeholder:t.name }, ok:"모두 지우기", danger:true });
+      if (v === false) return;
+      if (v.trim() !== t.name.trim()){ toast("책장 이름이 달라서 지우지 않았어요"); return; }
+    } else if (!await ask({ title:`'${t.name}' 책장 지우기`, text:"빈 책장이에요. 지울까요?", ok:"지우기", danger:true })) return;
+    err.textContent = "지우고 있어요…";
+    try {
+      for (const [id] of books){
+        await api("DELETE", `shelf/${id}`); await api("DELETE", `books/${id}`); await api("DELETE", `imgs/${id}`); await api("DELETE", `comments/${id}`);
+        api("DELETE", `reacts/${id}`).catch(() => {});
+      }
+      const themes = THEMES.filter(x => x.id !== t.id), active = ACTIVE === t.id ? themes[0].id : ACTIVE;
+      if (S.viewTheme === t.id) S.viewTheme = active;
+      for (const [id] of books) delete S.shelf[id];
+      if (await save(themes, active)) toast(`'${t.name}' 책장을 지웠어요`);
+    } catch(e){ console.error(e); err.textContent = "지우다 멈췄어요. 다시 눌러 주세요."; }
+  };
+  const add = async group => {
+    const name = await ask({ title:group ? "새 모둠 책장" : "새 책장", text:group ? "모둠끼리 한 권씩 함께 만드는 책장이에요." : "새 주제의 이름을 적어 주세요.", input:{ placeholder:group ? "예: 모둠 그림책" : "예: 자유 주제" }, ok:"만들기" });
+    if (name === false || !name.trim()) return;
+    const id = uid(), themes = THEMES.concat([{ id, name:name.trim().slice(0, 30), created:Date.now(), ex:false, ...(group ? { groups:[] } : {}) }]);
+    const def = await ask({ title:"기본 책장으로 정할까요?", text:"기본 책장은 학생이 '내 책 쓰러 가기'를 누르면 먼저 골라져 있는 책장이에요.", ok:"기본으로", cancel:"그대로" });
+    if (!await save(themes, def ? id : ACTIVE)) return;
+    if (group){ closeDlg(d); await editGroups(id); openDlg(d); draw(); }
+  };
+  $("#thAdd").onclick = () => add(false);
+  $("#thAddG").onclick = () => add(true);
+  const close = () => { closeDlg(d); showShelf(); };
+  $("#thClose").onclick = close; d.oncancel = e => { e.preventDefault(); close(); };
+  err.textContent = ""; draw(); openDlg(d);
+}
 
 /* ---------- 시작 ---------- */
 const SHARE_ID = new URLSearchParams(location.search).get("book");
