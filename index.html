@@ -850,9 +850,11 @@ function ask({ title, text="", input=null, copy=null, ok="확인", cancel="취�
 let ROSTER = { max:CONFIG.MAX_NUMBER, skip:CONFIG.SKIP_NUMBERS.slice() };
 // 책장(주제): 처음 만든 책들은 모두 "t1" 책장에 들어가요
 let THEMES = [{ id:"t1", name:"첫 번째 책장" }], ACTIVE = "t1", NAMES = {};
+const RSTAT = { t:0, r:null };
 async function loadRoster(){
   try {
-    const r = await api("GET","books/_settings");
+    const r = (!S.teacher && RSTAT.t && Date.now() - RSTAT.t < 60000) ? RSTAT.r : await api("GET","books/_settings");
+    RSTAT.t = Date.now(); RSTAT.r = r;
     if (r && r.max) ROSTER = { max:+r.max, skip:(r.skip||[]).map(Number) };
     if (r && Array.isArray(r.themes) && r.themes.length){ THEMES = r.themes; ACTIVE = r.active || THEMES[THEMES.length-1].id; }
     if (r && r.names) NAMES = r.names;
@@ -965,11 +967,28 @@ function coverImg(){
 /* ============================================================
    서가
    ============================================================ */
+const QC = {};
+// 책장 목록을 조건(책장 또는 번호)으로만 읽어요. 학생 화면은 1분 동안 다시 읽지 않아요
+async function shelfWhere(field, val, ttl = 60000){
+  const key = field + "=" + val, c = QC[key];
+  if (ttl && c && Date.now() - c.t < ttl) return c.r;
+  let r = {};
+  if (DEMO){ const all = await api("GET", "shelf") || {}; for (const [k, b] of Object.entries(all)) if ((field === "theme" ? themeOf(b) : b[field]) === val || (field === "num" && +b.num === +val)) r[k] = b; }
+  else { const snap = await DB.collection(COL.shelf).where(field, "==", val).get(); snap.forEach(d => r[d.id] = d.data()); }
+  QC[key] = { t:Date.now(), r }; return r;
+}
+const clearQC = () => { for (const k in QC) delete QC[k]; S.shelfAt = 0; RSTAT.t = 0; };
+const mergeShelf = (r, dropNum) => { if (dropNum != null) for (const k in S.shelf) if (+S.shelf[k].num === +dropNum) delete S.shelf[k]; S.shelf = { ...S.shelf, ...r }; };
+const getShelfCached = async (force) => { if (!force && !S.teacher && S.shelfAt && Date.now() - S.shelfAt < 20000 && S.shelfCache) return S.shelfCache; const r = await api("GET", "shelf") || {}; S.shelfCache = r; S.shelfAt = Date.now(); return r; };
 async function showShelf(){
   stopLive();
   S.view = "shelf"; S.id = null; S.book = null; S.imgs = {};
   $("#app").innerHTML = `<div class="wrap"><p class="empty">책장을 불러오고 있어요…</p></div>`;
-  try { S.shelf = await api("GET", "shelf") || {}; await loadRoster(); }
+  try {
+    await loadRoster();
+    if (S.teacher) S.shelf = { ...(await getShelfCached(true)) };
+    else { const vt0 = THEMES.some(t => t.id === S.viewTheme) ? S.viewTheme : ACTIVE; S.shelf = { ...(await shelfWhere("theme", vt0)) }; }
+  }
   catch(e){ S.shelf = {}; toast("책장을 불러오지 못했어요. 인터넷 연결을 확인하세요."); }
   if (!S.teacher) for (const k in S.shelf) if (!S.shelf[k].author) delete S.shelf[k];
   const vt = S.viewTheme;
@@ -1112,7 +1131,7 @@ async function showShelf(){
     if (S.teacher){ S.teacher=false; showShelf(); return; }
     const p = await ask({ title:"선생님 모드", input:{ type:"password", mode:"numeric" }, ok:"켜기" });
     if (p === false) return;
-    if (p.trim() === CONFIG.TEACHER_PIN){ S.teacher = true; toast("선생님 모드가 켜졌어요"); showShelf(); }
+    if (p.trim() === CONFIG.TEACHER_PIN){ clearQC(); S.teacher = true; toast("선생님 모드가 켜졌어요"); showShelf(); }
     else toast("비밀번호가 달라요");
   };
   document.querySelectorAll(".bk, .nb[data-id], .gc [data-id]").forEach(b => b.onclick = () => openReader(b.dataset.id));
@@ -1314,18 +1333,19 @@ async function makeAllGroupBooks(th){
 /* ---------- 로그인 ---------- */
 async function openLogin(){
   const d = $("#login"); $("#lgName").value=""; $("#lgPin").value=""; $("#lgErr").textContent=""; LG = { g:0, m:0 };
-  try { S.shelf = await api("GET","shelf") || {}; await loadRoster(); } catch(e){}
+  try { await loadRoster(); } catch(e){}
   const start = THEMES.length <= 1 ? (THEMES[0] || {}).id || ACTIVE : (THEMES.some(t => t.id === S.thPicked) ? S.thPicked : "");
   $("#lgTh").innerHTML = `<option value=""></option>` + THEMES.map(t => `<option value="${t.id}"${t.id === start ? " selected" : ""}>${esc(t.name)}</option>`).join("");
   $("#lgThF").style.display = THEMES.length > 1 ? "" : "none";
   lgThBtns();
+  if (start){ try { mergeShelf(await shelfWhere("theme", start)); } catch(e){} }
   lgThChanged(); openDlg(d);
 }
 const lgTheme = () => $("#lgTh").value || (THEMES.length > 1 ? "" : ACTIVE);
 function lgThBtns(){
   const cur = $("#lgTh").value;
   $("#lgThBtns").innerHTML = THEMES.map(t => `<button type="button" data-lth="${t.id}" aria-pressed="${t.id === cur}">${esc(t.name)}${isGroupTh(t.id) ? "<small>모둠 책장</small>" : ""}</button>`).join("");
-  document.querySelectorAll("#lgThBtns [data-lth]").forEach(b => b.onclick = () => { $("#lgTh").value = b.dataset.lth; lgThBtns(); lgThChanged(); });
+  document.querySelectorAll("#lgThBtns [data-lth]").forEach(b => b.onclick = async () => { $("#lgTh").value = b.dataset.lth; lgThBtns(); try { mergeShelf(await shelfWhere("theme", b.dataset.lth)); } catch(e){} lgThChanged(); });
 }
 let LG = { g:0, m:0 };   // 모둠 책장에서 고른 모둠, 내 번호
 function lgThChanged(){
@@ -1371,7 +1391,7 @@ function lgNumChanged(){
   who.style.display = n ? "" : "none";
   $("#lgErr").textContent = "";
 }
-$("#lgNum").onchange = lgNumChanged;
+$("#lgNum").onchange = async () => { const n = +$("#lgNum").value; if (n){ try { mergeShelf(await shelfWhere("num", n), n); } catch(e){} } lgNumChanged(); };
 $("#lgCancel").onclick = () => closeDlg($("#login"));
 async function openGroupLogin(){
   const th = lgTheme(), err = $("#lgErr");
@@ -1381,7 +1401,7 @@ async function openGroupLogin(){
   if (!name){ err.textContent = "이름을 적어 주세요."; return; }
   err.textContent = "확인하고 있어요…";
   try {
-    S.shelf = await api("GET","shelf") || {};
+    mergeShelf(await shelfWhere("theme", th, 0));
     const f = bookByGroup(LG.g, th);
     if (!f){ err.textContent = "아직 우리 모둠 책이 없어요. 선생님께 말씀해 주세요."; return; }
     const book = await api("GET", `books/${f[0]}`);
@@ -1399,7 +1419,7 @@ $("#lgGo").onclick = async () => {
   if (!/^\d{4}$/.test(pin)){ err.textContent = "비밀번호는 숫자 4자리로 적어 주세요."; return; }
   err.textContent = "확인하고 있어요…";
   try {
-    S.shelf = await api("GET","shelf") || {};
+    mergeShelf(await shelfWhere("num", num, 0), num);
     const th = lgTheme(), found = bookByNum(num, th);
     if (!found && !name){ err.textContent = "이름을 적어 주세요."; return; }
     if (found){
@@ -1417,9 +1437,9 @@ $("#lgGo").onclick = async () => {
       const yes = await ask({ title:"새 책 만들기", text:`'${themeName(th)}' 책장 · ${num}번 ${name}\n새 책을 만들까요? 비밀번호 ${pin}을 꼭 기억해 두세요.`, ok:"새 책 만들기" });
       if (!yes){ openDlg($("#login")); return; }
       const id = uid(), book = newBook(name, pin, num, th);
-      await api("PUT", `books/${id}`, book);
-      await api("PUT", `shelf/${id}`, { title:book.title, author:name, num, theme:th, pages:book.pages.length, written:0, updated:Date.now() });
-      openEditor(id, book);
+      await withTimeout(api("PUT", `books/${id}`, book));
+      await withTimeout(api("PUT", `shelf/${id}`, { title:book.title, author:name, num, theme:th, pages:book.pages.length, written:0, updated:Date.now() }));
+      clearQC(); openEditor(id, book);
     }
   } catch(e){
     if (!$("#login").open) openDlg($("#login"));
@@ -1436,7 +1456,7 @@ let saveTimer = null, pending = false;
 function setStatus(s){
   const el = $("#status"); if (!el) return;
   el.className = "status" + (s==="error" ? " err" : "");
-  el.textContent = { saving:"저장 중…", saved:"저장됨", error:"저장 안 됨 — 인터넷을 확인하세요" }[s];
+  el.textContent = { saving:"✎ 쓰는 중 (잠시 뒤 자동 저장)", saved:"저장됨", error:"⚠ 서버에 저장 안 됨 (글은 이 기기에 보관 중) — 창을 닫지 말고 선생님께 알려 주세요" }[s];
 }
 function touch(p){ if (S.teacher) return; const t = Date.now(); if (p) p.ed = t; else S.book.cvEd = t; }
 // 무엇을 고쳤는지 알려 주면 저장해요. 모둠 책은 고친 칸만, 고친 사람과 함께 보내요.
@@ -1456,27 +1476,44 @@ function changed(p, ...keys){
   }
   queueSave();
 }
-function queueSave(){ pending = true; setStatus("saving"); clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 700); }
+const SAVE_MS = 10000, SAVE_MAX = 45000;   // 글을 쓰다 10초 쉬거나, 계속 써도 45초마다 서버에 저장해요 (무료 한도: 하루 쓰기 2만 회)
+let pendSince = 0;
+const bkKey = id => "csb-bk-" + id;
+function localBackup(){
+  if (!S.book || S.grp || !S.id) return;
+  try { localStorage.setItem(bkKey(S.id), JSON.stringify({ t:Date.now(), title:S.book.title, pages:S.book.pages })); } catch(e){}
+}
+function queueSave(){
+  if (!pending) pendSince = Date.now();
+  pending = true; setStatus("saving"); localBackup(); clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, Math.max(300, Math.min(SAVE_MS, pendSince + SAVE_MAX - Date.now())));
+}
+// 서버가 응답하지 않으면(한도 초과, 인터넷 끊김) 오래 기다리지 않고 알려 줘요
+const withTimeout = (p, ms = 12000) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code:"timeout" }), ms))]);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && pending) flushSave(); });
 async function flushSave(){
   clearTimeout(saveTimer); if (!pending || !S.book) return;
   pending = false; const b = S.book, now = Date.now();
   if (S.grp) return flushGroup(b, now);
   try {
-    await api("PATCH", `books/${S.id}`, { title:b.title, pages:b.pages, updated:now, cvEd:b.cvEd || 0, delAt:b.delAt || 0 });
-    await api("PATCH", `shelf/${S.id}`, { title:b.title, author:b.author, pages:b.pages.length, written:b.pages.filter(p => p.text.trim()).length, updated:now });
-    setStatus("saved");
+    const id = S.id;
+    await withTimeout(api("PATCH", `books/${id}`, { title:b.title, pages:b.pages, updated:now, cvEd:b.cvEd || 0, delAt:b.delAt || 0 }));
+    const sh = { title:b.title, author:b.author, pages:b.pages.length, written:b.pages.filter(p => p.text.trim()).length }, sig = JSON.stringify(sh);
+    if (sig !== S.shSent){ await withTimeout(api("PATCH", `shelf/${id}`, { ...sh, updated:now })); S.shSent = sig; }
+    try { const bk = JSON.parse(localStorage.getItem(bkKey(id)) || "null"); if (bk && bk.t <= now) localStorage.removeItem(bkKey(id)); } catch(e){}
+    if (S.id === id) setStatus(pending ? "saving" : "saved");
   } catch(e){
     if (e && e.code === "not-found"){ pending = false; S.book = null; toast("이 책은 지워졌어요. 선생님께 말씀해 주세요"); showShelf(); return; }
-    pending = true; setStatus("error");
+    pending = true; setStatus("error"); clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 30000);
   }
 }
 async function flushGroup(b, now){
   const d = S.gd, id = S.id; S.gd = {};
   try {
-    if (Object.keys(d).length) await gUpdate(id, { ...d, updated:now });
+    if (Object.keys(d).length) await withTimeout(gUpdate(id, { ...d, updated:now }));
     const sh = { title:b.title, author:b.author, pages:b.pages.length, written:b.pages.filter(p => p.text.trim()).length };
     const sig = JSON.stringify(sh);
-    if (sig !== S.shSent){ await api("PATCH", `shelf/${id}`, { ...sh, updated:now }); S.shSent = sig; }
+    if (sig !== S.shSent){ await withTimeout(api("PATCH", `shelf/${id}`, { ...sh, updated:now })); S.shSent = sig; }
     if (S.id === id) setStatus(pending ? "saving" : "saved");
   } catch(e){
     if (e && e.code === "not-found"){ S.book = null; toast("이 책은 지워졌어요. 선생님께 말씀해 주세요"); showShelf(); return; }
@@ -1493,11 +1530,20 @@ async function refreshThumb(){
 async function openEditor(id, book, me){
   stopLive();
   S.view="edit"; S.id=id; S.book=normalize(book); S.tab="pages"; S.page=0; S.pagePid=null;
-  S.grp = book.grp != null; S.gd = {}; S.shSent = ""; S.imgVer = 0; S.lastSig = ""; S.imgs = {};
+  S.grp = book.grp != null; S.gd = {}; S.imgVer = 0; S.lastSig = ""; S.imgs = {};
+  S.shSent = S.grp ? "" : JSON.stringify({ title:S.book.title, author:S.book.author, pages:S.book.pages.length, written:S.book.pages.filter(p => p.text.trim()).length });
   S.me = me || (S.teacher ? { num:0, name:"선생님" } : S.me);
   $("#app").innerHTML = `<div class="wrap"><p class="empty">책을 펼치고 있어요…</p></div>`;
   if (S.grp){ S.book.pages.forEach(seeLock); await startLive(id); }
   else { try { S.imgs = await api("GET", `imgs/${id}`) || {}; } catch(e){ S.imgs = {}; } }
+  if (!S.grp){
+    let bk = null; try { bk = JSON.parse(localStorage.getItem(bkKey(id)) || "null"); } catch(e){}
+    if (bk && Array.isArray(bk.pages) && bk.t > (book.updated || 0)){
+      if (await ask({ title:"저장 안 된 글이 있어요", text:"이 기기에 서버로 못 보낸 글이 남아 있어요.\n불러와서 이어 쓸까요?", ok:"불러오기", cancel:"버리기" })){
+        S.book.title = bk.title; S.book.pages = normalize({ pages:bk.pages }).pages; pending = true; setTimeout(flushSave, 500);
+      } else localStorage.removeItem(bkKey(id));
+    }
+  }
   if (!S.teacher && S.book.rev === "redo" && !S.book.revSeen){
     const seen = { revSeen:Date.now() }; Object.assign(S.book, seen);
     api("PATCH", `books/${id}`, seen).catch(()=>{}); api("PATCH", `shelf/${id}`, seen).catch(()=>{});
@@ -1525,7 +1571,7 @@ function renderEditor(){
       `<button class="tab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}</button>`).join("")}
   </div>
   <div class="panel" id="panel"></div><div style="height:40px"></div>`;
-  $("#back").onclick = async () => { await flushSave(); S.viewTheme = themeOf(S.book); showShelf(); };
+  $("#back").onclick = async () => { await flushSave(); S.viewTheme = themeOf(S.book); clearQC(); showShelf(); };
   $("#read").onclick = async () => { await flushSave(); openReader(S.id); };
   $("#fin").onclick = toggleDone;
   document.querySelectorAll(".tab").forEach(t => t.onclick = () => { S.tab = t.dataset.tab; renderEditor(); });
@@ -1665,7 +1711,7 @@ function chipsHTML(){
 }
 function wireChips(){
   const b = S.book;
-  document.querySelectorAll(".chip[data-p]").forEach(c => c.onclick = () => { S.page = +c.dataset.p; renderPages(); });
+  document.querySelectorAll(".chip[data-p]").forEach(c => c.onclick = () => { if (pending) flushSave(); S.page = +c.dataset.p; renderPages(); });
   $("#addPg").onclick = () => {
     const np = { pid:uid(), text:"", layout:"side", hasImg:false, ed:S.teacher ? 0 : Date.now() };
     if (S.grp){
@@ -2029,6 +2075,7 @@ async function openReader(id){
     if (b.grp != null ? groupOf(num, themeOf(b)) === +b.grp : +b.num === num){ toast(b.grp != null ? "우리 모둠 책에는 감상평을 쓸 수 없어요" : "내 책에는 감상평을 쓸 수 없어요"); return; }
     if (!text){ toast("감상평을 적어 주세요"); return; }
     if (badWord(text)){ toast("친구가 속상할 수 있는 말이 있어요. 고운 말로 다시 써 볼까요?"); return; }
+    if (!bookByNum(num)){ try { mergeShelf(await shelfWhere("num", num)); } catch(e){} }
     const f = bookByNum(num, ACTIVE) || bookByNum(num), cid = uid();
     const c = { num, name: f ? f[1].author : "", text, created: Date.now() };
     if (LIB.cmApprove && !S.teacher) c.ok = false;
